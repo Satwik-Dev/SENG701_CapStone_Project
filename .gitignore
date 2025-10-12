@@ -1,0 +1,32 @@
+
+# ===== SBOM Manager Project =====
+
+# Environment variables
+project/.env
+project/**/.env.local
+
+# Frontend (React)
+project/frontend/node_modules/
+project/frontend/dist/
+project/frontend/build/
+project/frontend/.vite/
+
+# Backend (Python)
+project/backend/venv/
+project/backend/*.pyc
+project/backend/__pycache__/
+project/backend/*.pyo
+project/backend/*.pyd
+project/backend/.Python
+project/backend/env/
+project/backend/*.egg-info/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
