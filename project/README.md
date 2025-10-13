@@ -33,57 +33,66 @@ A cloud-hosted web application for generating, managing, and analyzing Software 
 
 ### Backend Setup
 
-1. Clone the repository
+1. **Clone the repository**
 ```bash
 git clone <your-repo-url>
 cd project/backend
+```
 
-Create virtual environment
-
-bashpython -m venv venv
+2. **Create virtual environment**
+```bash
+python -m venv venv
 source venv/Scripts/activate  # Windows Git Bash
 # OR
 source venv/bin/activate       # Linux/Mac
+```
 
-Install dependencies
+3. **Install dependencies**
+```bash
+pip install -r requirements.txt
+```
 
-bashpip install -r requirements.txt
-
-Configure environment variables
-
-bashcp .env.example .env
+4. **Configure environment variables**
+```bash
+cp .env.example .env
 # Edit .env with your Supabase credentials
+```
 
-Run the server
+5. **Run the server**
+```bash
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
 
-bashuvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+6. **Access API documentation**
+- Swagger UI: http://localhost:8000/docs
+- ReDoc: http://localhost:8000/redoc
 
-Access API documentation
+### Environment Variables
 
+See `.env.example` for required variables.
 
-Swagger UI: http://localhost:8000/docs
-ReDoc: http://localhost:8000/redoc
+**Critical:** Never commit `.env` files to version control!
 
-Environment Variables
-See .env.example for required variables.
-Critical: Never commit .env files to version control!
-API Endpoints
-Authentication
+## API Endpoints
 
-POST /api/v1/auth/register - Register new user
-POST /api/v1/auth/login - Login
-POST /api/v1/auth/refresh - Refresh token
-GET /api/v1/auth/me - Get current user
-POST /api/v1/auth/forgot-password - Password reset
+### Authentication
 
-Coming Soon
+- `POST /api/v1/auth/register` - Register new user
+- `POST /api/v1/auth/login` - Login
+- `POST /api/v1/auth/refresh` - Refresh token
+- `GET /api/v1/auth/me` - Get current user
+- `POST /api/v1/auth/forgot-password` - Password reset
 
-SBOM upload and generation
-Search and filtering
-Comparison features
-Statistics dashboard
+### Coming Soon
 
-Project Structure
+- SBOM upload and generation
+- Search and filtering
+- Comparison features
+- Statistics dashboard
+
+## Project Structure
+
+```
 project/
 ├── backend/
 │   ├── app/
@@ -96,23 +105,28 @@ project/
 │   ├── .env              # Environment variables (not in git)
 │   └── requirements.txt  # Python dependencies
 └── frontend/             # Coming soon
-Development Status
+```
 
-✅ Backend setup with FastAPI
-✅ Database schema (Supabase PostgreSQL)
-✅ Authentication system (register, login, JWT)
-✅ API documentation
-🚧 File upload functionality (in progress)
-🚧 SBOM generation (in progress)
-🚧 Frontend (in progress)
+## Development Status
 
-License
+- ✅ Backend setup with FastAPI
+- ✅ Database schema (Supabase PostgreSQL)
+- ✅ Authentication system (register, login, JWT)
+- ✅ API documentation
+- 🚧 File upload functionality (in progress)
+- 🚧 SBOM generation (in progress)
+- 🚧 Frontend (in progress)
+
+## License
+
 MIT License
-Author
-Satwik Alla - UMBC SENG 701 Capstone Project
-Acknowledgments
 
-Prof. Mohammad Samarah & Prof. Melissa Sahl (Advisors)
-Supabase for backend infrastructure
-Anchore Syft for SBOM generation
-EOF
+## Author
+
+**Satwik Alla** - UMBC SENG 701 Capstone Project
+
+## Acknowledgments
+
+- Prof. Mohammad Samarah & Prof. Melissa Sahl (Advisors)
+- Supabase for backend infrastructure
+- Anchore Syft for SBOM generation
