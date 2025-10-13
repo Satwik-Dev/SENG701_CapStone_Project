@@ -116,17 +116,11 @@ def verify_token(token: str, token_type: str = "access") -> Optional[Dict[str, A
         if payload.get("type") != token_type:
             return None
         
-        # Check if token has expired
-        exp = payload.get("exp")
-        if exp is None:
-            return None
-        
-        if datetime.fromtimestamp(exp) < datetime.utcnow():
-            return None
-        
         return payload
         
     except JWTError:
+        return None
+    except Exception:
         return None
 
 

@@ -1,32 +1,60 @@
 
 # ===== SBOM Manager Project =====
 
-# Environment variables
+# Python
+venv/
+*.pyc
+__pycache__/
+*.pyo
+*.pyd
+.Python
+env/
+.venv
+*.egg-info/
+.pytest_cache/
+
+# Node
+node_modules/
+npm-debug.log
+yarn-error.log
+package-lock.json
+yarn.lock
+
+# Environment variables - CRITICAL!
+.env
+.env.local
+.env.*.local
 project/.env
-project/**/.env.local
+project/backend/.env
+project/frontend/.env
 
-# Frontend (React)
-project/frontend/node_modules/
-project/frontend/dist/
-project/frontend/build/
-project/frontend/.vite/
-
-# Backend (Python)
-project/backend/venv/
-project/backend/*.pyc
-project/backend/__pycache__/
-project/backend/*.pyo
-project/backend/*.pyd
-project/backend/.Python
-project/backend/env/
-project/backend/*.egg-info/
+# Build outputs
+dist/
+build/
 
 # IDE
 .vscode/
 .idea/
 *.swp
 *.swo
+.DS_Store
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs
+*.log
+logs/
 
 # OS
-.DS_Store
 Thumbs.db
+.DS_Store
+
+# Supabase
+.supabase/
+
+# Test files (optional)
+test_*.py
+debug_*.py
