@@ -10,6 +10,7 @@ export const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  timeout: 10000,
 });
 
 // Request interceptor - add auth token
@@ -34,8 +35,13 @@ api.interceptors.response.use(
   async (error: AxiosError) => {
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
     
-    // If 401 and haven't retried yet, try to refresh token
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    // Check if it's an auth endpoint (don't retry for login/register)
+    const isAuthEndpoint = originalRequest?.url?.includes('/auth/login') || 
+                          originalRequest?.url?.includes('/auth/register') ||
+                          originalRequest?.url?.includes('/auth/refresh');
+    
+    // If 401 and not an auth endpoint, try to refresh token
+    if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
       originalRequest._retry = true;
       
       try {

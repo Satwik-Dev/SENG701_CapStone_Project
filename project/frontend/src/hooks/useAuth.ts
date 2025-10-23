@@ -32,14 +32,23 @@ export const useAuth = () => {
     
     try {
       const response = await authService.login(credentials);
+      
+      // Set auth state
       setAuth(response);
-      toast.success('Login successful!');
+      
+      // Show success toast
+      toast.success('Welcome back!');
+      
+      // Return response
       return response;
+      
     } catch (err: any) {
-      const errorMessage = err.response?.data?.detail || 'Login failed';
+      // Extract error message
+      const errorMessage = err.response?.data?.detail || 'Invalid email or password';
+      
       setError(errorMessage);
-      toast.error(errorMessage);
       throw err;
+      
     } finally {
       setLoading(false);
     }

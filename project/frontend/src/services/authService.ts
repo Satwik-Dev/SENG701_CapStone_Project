@@ -1,4 +1,3 @@
- 
 import api from './api';
 import type { AuthResponse, LoginCredentials, RegisterData, User } from '../types/auth';
 
@@ -37,8 +36,8 @@ export const authService = {
     return response.data;
   },
 
-  // Logout (client-side only for now)
+  // Logout
   logout(): void {
-    // Clear any additional client-side data if needed
+    // Clear any client-side data if needed
   },
 };

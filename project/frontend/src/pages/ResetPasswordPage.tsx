@@ -237,7 +237,6 @@ export const ResetPasswordPage: React.FC = () => {
               value={formData.email}
               onChange={handleChange}
               error={errors.email}
-              placeholder="you@example.com"
               helperText="Enter the email you used to request password reset"
               required
             />
@@ -311,7 +310,6 @@ export const ResetPasswordPage: React.FC = () => {
               value={formData.password}
               onChange={handleChange}
               error={errors.password}
-              placeholder="Enter your new password"
               required
             />
 
@@ -354,7 +352,6 @@ export const ResetPasswordPage: React.FC = () => {
               value={formData.confirmPassword}
               onChange={handleChange}
               error={errors.confirmPassword}
-              placeholder="Re-enter your new password"
               required
             />
 
