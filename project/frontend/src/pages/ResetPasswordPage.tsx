@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { authService } from '../services/authService';
 import { PasswordInput } from '../components/common/PasswordInput';
 import { Button } from '../components/common/Button';
-import { CheckCircle2 } from 'lucide-react';
+import { CheckCircle2, Check, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export const ResetPasswordPage: React.FC = () => {
@@ -16,44 +16,50 @@ export const ResetPasswordPage: React.FC = () => {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(false);
   const [success, setSuccess] = useState(false);
-  
-  // Get token from URL (query params or hash fragment)
   const [token, setToken] = useState<string | null>(null);
+  const [email, setEmail] = useState<string>('');
   
-useEffect(() => {
-    // Log everything for debugging
-    console.log('Full URL:', window.location.href);
-    console.log('Pathname:', window.location.pathname);
-    console.log('Search:', window.location.search);
-    console.log('Hash:', window.location.hash);
-    console.log('SearchParams:', Array.from(searchParams.entries()));
-    
-    // Check query parameters
-    const queryToken = searchParams.get('token') || searchParams.get('access_token') || searchParams.get('recovery_token');
-    
-    if (queryToken) {
-      setToken(queryToken);
-      console.log('✅ Token found in query params:', queryToken);
-      return;
+  useEffect(() => {
+    // Get email from sessionStorage (set in ForgotPasswordPage)
+    const storedEmail = sessionStorage.getItem('resetEmail');
+    if (storedEmail) {
+      setEmail(storedEmail);
+      console.log('✅ Email found:', storedEmail);
+    } else {
+      console.log('❌ No email found in sessionStorage');
     }
-    
-    // Check hash fragment (Supabase often uses this)
-    const hash = window.location.hash.substring(1); // Remove the #
-    console.log('Hash substring:', hash);
-    
-    if (hash) {
-      const hashParams = new URLSearchParams(hash);
-      console.log('Hash params:', Array.from(hashParams.entries()));
-      const hashToken = hashParams.get('access_token') || hashParams.get('token') || hashParams.get('recovery_token');
-      
-      if (hashToken) {
-        setToken(hashToken);
-        console.log('✅ Token found in hash:', hashToken);
+
+    // Extract token from URL
+    const extractToken = () => {
+      // Check query parameters
+      const queryToken = searchParams.get('token');
+      if (queryToken) {
+        setToken(queryToken);
+        console.log('✅ Token found in query:', queryToken);
         return;
       }
-    }
+      
+      // Check hash fragment
+      const hash = window.location.hash.substring(1);
+      if (hash) {
+        console.log('Hash found:', hash);
+        const hashParams = new URLSearchParams(hash);
+        const hashToken = hashParams.get('access_token') || hashParams.get('token');
+        
+        if (hashToken) {
+          setToken(hashToken);
+          console.log('✅ Token found in hash:', hashToken);
+          // Clean URL
+          window.history.replaceState(null, '', window.location.pathname);
+        } else {
+          console.log('❌ No token in hash');
+        }
+      } else {
+        console.log('❌ No hash in URL');
+      }
+    };
     
-    console.log('❌ No token found in URL');
+    extractToken();
   }, [searchParams]);
 
   // Password strength checker
@@ -69,19 +75,27 @@ useEffect(() => {
 
   const passwordStrength = getPasswordStrength(formData.password);
 
+  // Password requirement checks
+  const passwordChecks = {
+    length: formData.password.length >= 8,
+    uppercase: /[A-Z]/.test(formData.password),
+    lowercase: /[a-z]/.test(formData.password),
+    number: /[0-9]/.test(formData.password),
+  };
+
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
 
     // Password validation
     if (!formData.password) {
       newErrors.password = 'Password is required';
-    } else if (formData.password.length < 8) {
+    } else if (!passwordChecks.length) {
       newErrors.password = 'Password must be at least 8 characters';
-    } else if (!/[A-Z]/.test(formData.password)) {
+    } else if (!passwordChecks.uppercase) {
       newErrors.password = 'Password must contain at least one uppercase letter';
-    } else if (!/[a-z]/.test(formData.password)) {
+    } else if (!passwordChecks.lowercase) {
       newErrors.password = 'Password must contain at least one lowercase letter';
-    } else if (!/[0-9]/.test(formData.password)) {
+    } else if (!passwordChecks.number) {
       newErrors.password = 'Password must contain at least one number';
     }
 
@@ -102,12 +116,20 @@ useEffect(() => {
       return;
     }
 
+    if (!email) {
+      toast.error('Email is missing. Please request a new password reset.');
+      return;
+    }
+
     if (!validateForm()) return;
 
     setIsLoading(true);
 
     try {
-      await authService.resetPassword(token, formData.password);
+      await authService.resetPassword(email, token, formData.password);
+      
+      // Clear the stored email
+      sessionStorage.removeItem('resetEmail');
       
       toast.success('Password reset successful!');
       setSuccess(true);
@@ -152,34 +174,108 @@ useEffect(() => {
     );
   }
 
+  // Check if button should be enabled
+  const isFormValid = token && email && formData.password && formData.confirmPassword && 
+                      formData.password === formData.confirmPassword &&
+                      passwordChecks.length && passwordChecks.uppercase && 
+                      passwordChecks.lowercase && passwordChecks.number;
+
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
       <div className="max-w-md w-full">
         {/* Header */}
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Set New Password
+            Create New Password
           </h1>
           <p className="text-gray-600">
-            Please enter your new password
+            {email ? `Resetting password for ${email}` : 'Enter your new password below'}
           </p>
-          {!token && (
-            <p className="text-sm text-red-600 mt-2">
-              No reset token detected. Please check your email link.
-            </p>
+          
+          {/* Debug Info - Remove this after testing */}
+          {(!token || !email) && (
+            <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-left">
+              <div className="flex items-start gap-2">
+                <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+                <div className="text-sm text-yellow-800">
+                  <p className="font-medium mb-1">Missing Information:</p>
+                  <ul className="list-disc list-inside space-y-1">
+                    {!token && <li>Reset token not found</li>}
+                    {!email && <li>Email not found (did you come from forgot password page?)</li>}
+                  </ul>
+                  <p className="mt-2">Please go back to the <a href="/forgot-password" className="underline font-medium">Forgot Password</a> page and try again.</p>
+                </div>
+              </div>
+            </div>
           )}
         </div>
 
         {/* Form Card */}
         <div className="bg-white rounded-lg shadow-lg p-8">
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Password Requirements */}
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+              <p className="text-sm font-medium text-gray-700 mb-3">
+                Password must contain:
+              </p>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <div className={`w-4 h-4 rounded-full flex items-center justify-center ${
+                    passwordChecks.length ? 'bg-green-500' : 'bg-gray-300'
+                  }`}>
+                    {passwordChecks.length && <Check className="w-3 h-3 text-white" />}
+                  </div>
+                  <span className={`text-sm ${
+                    passwordChecks.length ? 'text-green-700' : 'text-gray-600'
+                  }`}>
+                    At least 8 characters
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className={`w-4 h-4 rounded-full flex items-center justify-center ${
+                    passwordChecks.uppercase ? 'bg-green-500' : 'bg-gray-300'
+                  }`}>
+                    {passwordChecks.uppercase && <Check className="w-3 h-3 text-white" />}
+                  </div>
+                  <span className={`text-sm ${
+                    passwordChecks.uppercase ? 'text-green-700' : 'text-gray-600'
+                  }`}>
+                    One uppercase letter (A-Z)
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className={`w-4 h-4 rounded-full flex items-center justify-center ${
+                    passwordChecks.lowercase ? 'bg-green-500' : 'bg-gray-300'
+                  }`}>
+                    {passwordChecks.lowercase && <Check className="w-3 h-3 text-white" />}
+                  </div>
+                  <span className={`text-sm ${
+                    passwordChecks.lowercase ? 'text-green-700' : 'text-gray-600'
+                  }`}>
+                    One lowercase letter (a-z)
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className={`w-4 h-4 rounded-full flex items-center justify-center ${
+                    passwordChecks.number ? 'bg-green-500' : 'bg-gray-300'
+                  }`}>
+                    {passwordChecks.number && <Check className="w-3 h-3 text-white" />}
+                  </div>
+                  <span className={`text-sm ${
+                    passwordChecks.number ? 'text-green-700' : 'text-gray-600'
+                  }`}>
+                    One number (0-9)
+                  </span>
+                </div>
+              </div>
+            </div>
+
             {/* Password */}
             <PasswordInput
               label="New Password"
               name="password"
               value={formData.password}
               onChange={handleChange}
-              placeholder="••••••••"
               error={errors.password}
               required
             />
@@ -208,10 +304,10 @@ useEffect(() => {
                   <span
                     className={
                       passwordStrength <= 2
-                        ? 'text-red-600'
+                        ? 'text-red-600 font-medium'
                         : passwordStrength === 3
-                        ? 'text-yellow-600'
-                        : 'text-green-600'
+                        ? 'text-yellow-600 font-medium'
+                        : 'text-green-600 font-medium'
                     }
                   >
                     {passwordStrength <= 2
@@ -230,7 +326,6 @@ useEffect(() => {
               name="confirmPassword"
               value={formData.confirmPassword}
               onChange={handleChange}
-              placeholder="••••••••"
               error={errors.confirmPassword}
               required
             />
@@ -240,11 +335,24 @@ useEffect(() => {
               type="submit"
               variant="primary"
               isLoading={isLoading}
-              disabled={!token}
+              disabled={!isFormValid}
               className="w-full"
             >
               Reset Password
             </Button>
+
+            {/* Helper text when button is disabled */}
+            {!isFormValid && (formData.password || formData.confirmPassword) && (
+              <p className="text-sm text-gray-500 text-center">
+                {!token || !email 
+                  ? 'Missing reset token or email. Please request a new password reset.'
+                  : !passwordChecks.length || !passwordChecks.uppercase || !passwordChecks.lowercase || !passwordChecks.number
+                  ? 'Please meet all password requirements'
+                  : formData.password !== formData.confirmPassword
+                  ? 'Passwords do not match'
+                  : 'Fill in all fields to continue'}
+              </p>
+            )}
           </form>
         </div>
       </div>

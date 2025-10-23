@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { authService } from '../services/authService';
 import { Input } from '../components/common/Input';
 import { Button } from '../components/common/Button';
@@ -7,6 +7,7 @@ import { CheckCircle2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export const ForgotPasswordPage: React.FC = () => {
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
@@ -31,6 +32,10 @@ export const ForgotPasswordPage: React.FC = () => {
 
     try {
       const response = await authService.forgotPassword(email);
+      
+      // Store email in sessionStorage so reset page can use it
+      sessionStorage.setItem('resetEmail', email);
+      
       toast.success(response.message);
       setEmailSent(true);
     } catch (err: any) {
@@ -85,7 +90,6 @@ export const ForgotPasswordPage: React.FC = () => {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
               error={error}
               required
             />

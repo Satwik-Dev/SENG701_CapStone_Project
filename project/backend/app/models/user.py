@@ -80,6 +80,7 @@ class PasswordReset(BaseModel):
 class PasswordResetConfirm(BaseModel):
     """Model for password reset confirmation."""
     token: str
+    email: EmailStr
     new_password: str = Field(..., min_length=8, max_length=100)
     
     @validator('new_password')

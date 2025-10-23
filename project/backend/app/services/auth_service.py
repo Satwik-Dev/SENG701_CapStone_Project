@@ -241,30 +241,50 @@ class AuthService:
                 "message": "If an account exists with this email, a password reset link has been sent."
             }
 
-    async def reset_password(self, token: str, new_password: str) -> Dict[str, str]:
+    async def reset_password(self, email: str, token: str, new_password: str) -> Dict[str, str]:
         """
-        Reset user password with token.
+        Reset user password using email and token from reset email.
         
         Args:
-            token: Password reset token from email
-            new_password: New password
+            email: User's email address
+            token: Token from password reset email
+            new_password: New password to set
             
         Returns:
             Success message
+            
+        Raises:
+            Exception: If password reset fails
         """
         try:
-            # Use Supabase Admin API to update password
-            # Note: In production, you would verify the token first
-            # For now, we'll use Supabase's built-in reset functionality
-            
-            response = self.client.auth.update_user({
-                "password": new_password
+            # Use Supabase's verify OTP method with the token and email
+            # This is the correct way to handle Supabase's password reset tokens
+            response = self.client.auth.verify_otp({
+                "email": email,
+                "token": token,
+                "type": "recovery"
             })
             
+            if response.user is None:
+                raise Exception("Invalid or expired password reset token")
+            
+            user_id = response.user.id
+            
+            # Now update the password using Admin API
+            update_response = self.client.auth.admin.update_user_by_id(
+                user_id,
+                {"password": new_password}
+            )
+            
+            if update_response.user is None:
+                raise Exception("Failed to update password")
+            
             return {
-                "message": "Password has been reset successfully"
+                "message": "Password has been reset successfully. You can now log in with your new password."
             }
             
         except Exception as e:
-            raise Exception(f"Password reset failed: {str(e)}")
-    
+            error_msg = str(e)
+            if "Invalid" in error_msg or "expired" in error_msg:
+                raise Exception("Password reset link has expired or is invalid. Please request a new one.")
+            raise Exception(f"Password reset failed: {error_msg}")

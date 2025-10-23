@@ -134,12 +134,13 @@ async def reset_password(
     auth_service: AuthService = Depends(get_auth_service)
 ):
     """
-    Reset password with token.
+    Reset password with token and email.
     
+    - **email**: User's email address
     - **token**: Password reset token from email
     - **new_password**: New password
     
     Resets the user's password.
     """
-    result = await auth_service.reset_password(data.token, data.new_password)
+    result = await auth_service.reset_password(data.email, data.token, data.new_password)
     return result

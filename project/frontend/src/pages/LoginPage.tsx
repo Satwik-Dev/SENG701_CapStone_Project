@@ -119,7 +119,6 @@ export const LoginPage: React.FC = () => {
               name="email"
               value={formData.email}
               onChange={handleChange}
-              placeholder="you@example.com"
               error={errors.email}
               autoComplete="email"
               required
@@ -131,7 +130,6 @@ export const LoginPage: React.FC = () => {
               name="password"
               value={formData.password}
               onChange={handleChange}
-              placeholder="••••••••"
               error={errors.password}
               autoComplete="current-password"
               required

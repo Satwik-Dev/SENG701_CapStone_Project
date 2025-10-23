@@ -140,7 +140,6 @@ export const RegisterPage: React.FC = () => {
               name="full_name"
               value={formData.full_name}
               onChange={handleChange}
-              placeholder="John Doe"
             />
 
             {/* Email */}
@@ -150,7 +149,6 @@ export const RegisterPage: React.FC = () => {
               name="email"
               value={formData.email}
               onChange={handleChange}
-              placeholder="you@example.com"
               error={errors.email}
               required
             />
@@ -161,7 +159,6 @@ export const RegisterPage: React.FC = () => {
               name="password"
               value={formData.password}
               onChange={handleChange}
-              placeholder="••••••••"
               error={errors.password}
               required
             />
@@ -205,7 +202,6 @@ export const RegisterPage: React.FC = () => {
               name="confirmPassword"
               value={formData.confirmPassword}
               onChange={handleChange}
-              placeholder="••••••••"
               error={errors.confirmPassword}
               required
             />
