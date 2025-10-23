@@ -4,7 +4,7 @@ import { useAuth } from '../hooks/useAuth';
 import { Input } from '../components/common/Input';
 import { PasswordInput } from '../components/common/PasswordInput';
 import { Button } from '../components/common/Button';
-import { CheckCircle2, AlertCircle } from 'lucide-react';
+import { CheckCircle2, Check } from 'lucide-react';
 
 export const RegisterPage: React.FC = () => {
   const navigate = useNavigate();
@@ -33,6 +33,14 @@ export const RegisterPage: React.FC = () => {
 
   const passwordStrength = getPasswordStrength(formData.password);
 
+  // Password requirement checks
+  const passwordChecks = {
+    length: formData.password.length >= 8,
+    uppercase: /[A-Z]/.test(formData.password),
+    lowercase: /[a-z]/.test(formData.password),
+    number: /[0-9]/.test(formData.password),
+  };
+
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
 
@@ -46,13 +54,13 @@ export const RegisterPage: React.FC = () => {
     // Password validation
     if (!formData.password) {
       newErrors.password = 'Password is required';
-    } else if (formData.password.length < 8) {
+    } else if (!passwordChecks.length) {
       newErrors.password = 'Password must be at least 8 characters';
-    } else if (!/[A-Z]/.test(formData.password)) {
+    } else if (!passwordChecks.uppercase) {
       newErrors.password = 'Password must contain at least one uppercase letter';
-    } else if (!/[a-z]/.test(formData.password)) {
+    } else if (!passwordChecks.lowercase) {
       newErrors.password = 'Password must contain at least one lowercase letter';
-    } else if (!/[0-9]/.test(formData.password)) {
+    } else if (!passwordChecks.number) {
       newErrors.password = 'Password must contain at least one number';
     }
 
@@ -153,6 +161,65 @@ export const RegisterPage: React.FC = () => {
               required
             />
 
+            {/* Password Requirements (show when password field is focused or has value) */}
+            {formData.password && (
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                <p className="text-sm font-medium text-gray-700 mb-3">
+                  Password must contain:
+                </p>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <div className={`w-4 h-4 rounded-full flex items-center justify-center transition-colors ${
+                      passwordChecks.length ? 'bg-green-500' : 'bg-gray-300'
+                    }`}>
+                      {passwordChecks.length && <Check className="w-3 h-3 text-white" />}
+                    </div>
+                    <span className={`text-sm transition-colors ${
+                      passwordChecks.length ? 'text-green-700 font-medium' : 'text-gray-600'
+                    }`}>
+                      At least 8 characters
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className={`w-4 h-4 rounded-full flex items-center justify-center transition-colors ${
+                      passwordChecks.uppercase ? 'bg-green-500' : 'bg-gray-300'
+                    }`}>
+                      {passwordChecks.uppercase && <Check className="w-3 h-3 text-white" />}
+                    </div>
+                    <span className={`text-sm transition-colors ${
+                      passwordChecks.uppercase ? 'text-green-700 font-medium' : 'text-gray-600'
+                    }`}>
+                      One uppercase letter (A-Z)
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className={`w-4 h-4 rounded-full flex items-center justify-center transition-colors ${
+                      passwordChecks.lowercase ? 'bg-green-500' : 'bg-gray-300'
+                    }`}>
+                      {passwordChecks.lowercase && <Check className="w-3 h-3 text-white" />}
+                    </div>
+                    <span className={`text-sm transition-colors ${
+                      passwordChecks.lowercase ? 'text-green-700 font-medium' : 'text-gray-600'
+                    }`}>
+                      One lowercase letter (a-z)
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className={`w-4 h-4 rounded-full flex items-center justify-center transition-colors ${
+                      passwordChecks.number ? 'bg-green-500' : 'bg-gray-300'
+                    }`}>
+                      {passwordChecks.number && <Check className="w-3 h-3 text-white" />}
+                    </div>
+                    <span className={`text-sm transition-colors ${
+                      passwordChecks.number ? 'text-green-700 font-medium' : 'text-gray-600'
+                    }`}>
+                      One number (0-9)
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Password */}
             <PasswordInput
               label="Password"
@@ -170,7 +237,7 @@ export const RegisterPage: React.FC = () => {
                   {[1, 2, 3, 4].map((level) => (
                     <div
                       key={level}
-                      className={`h-2 flex-1 rounded ${
+                      className={`h-2 flex-1 rounded transition-colors ${
                         passwordStrength >= level
                           ? passwordStrength <= 2
                             ? 'bg-red-500'
@@ -184,11 +251,11 @@ export const RegisterPage: React.FC = () => {
                 </div>
                 <p className="text-xs text-gray-600">
                   Password strength: {' '}
-                  <span className={
+                  <span className={`font-medium ${
                     passwordStrength <= 2 ? 'text-red-600' :
                     passwordStrength === 3 ? 'text-yellow-600' :
                     'text-green-600'
-                  }>
+                  }`}>
                     {passwordStrength <= 2 ? 'Weak' :
                      passwordStrength === 3 ? 'Medium' : 'Strong'}
                   </span>
@@ -211,7 +278,7 @@ export const RegisterPage: React.FC = () => {
               type="submit"
               variant="primary"
               isLoading={isLoading}
-              className="w-full"
+              className="w-full mt-6"
             >
               Create Account
             </Button>
