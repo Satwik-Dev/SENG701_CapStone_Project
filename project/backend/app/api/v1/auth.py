@@ -9,7 +9,8 @@ from app.models.user import (
     UserResponse, 
     Token, 
     TokenRefresh,
-    PasswordReset
+    PasswordReset,
+    PasswordResetConfirm
 )
 from app.services.auth_service import AuthService
 from app.api.deps import get_auth_service, get_current_user_id
@@ -125,4 +126,20 @@ async def forgot_password(
     Sends password reset link to email if account exists.
     """
     result = await auth_service.request_password_reset(data.email)
+    return result
+
+@router.post("/reset-password", response_model=dict)
+async def reset_password(
+    data: PasswordResetConfirm,
+    auth_service: AuthService = Depends(get_auth_service)
+):
+    """
+    Reset password with token.
+    
+    - **token**: Password reset token from email
+    - **new_password**: New password
+    
+    Resets the user's password.
+    """
+    result = await auth_service.reset_password(data.token, data.new_password)
     return result
