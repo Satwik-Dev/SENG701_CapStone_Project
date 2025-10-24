@@ -6,6 +6,8 @@ import { DashboardPage } from './pages/DashboardPage';
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { useAuthStore } from './store/authStore';
+import { UploadPage } from './pages/UploadPage';
+import { ApplicationsPage } from './pages/ApplicationsPage';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -109,6 +111,22 @@ function App() {
           element={
             <ProtectedRoute>
               <DashboardPage />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/upload" 
+          element={
+            <ProtectedRoute>
+              <UploadPage />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/applications" 
+          element={
+            <ProtectedRoute>
+              <ApplicationsPage />
             </ProtectedRoute>
           } 
         />
