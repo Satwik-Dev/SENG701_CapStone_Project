@@ -145,10 +145,13 @@ async def export_sbom(
     user_id: str = Depends(get_current_user_id),
     supabase_client: Client = Depends(get_supabase_client)
 ):
+    """
+    Export SBOM in requested format (CycloneDX or SPDX).
+    """
     
     try:
         response = supabase_client.table("applications").select(
-            "sbom_data, name, sbom_format"
+            "sbom_data, spdx_data, name, sbom_format"
         ).eq("id", app_id).eq("user_id", user_id).execute()
         
         if not response.data:
@@ -158,20 +161,19 @@ async def export_sbom(
             )
         
         app_data = response.data[0]
-        sbom_data = app_data.get("sbom_data")
+        
+        # Return requested format
+        if format == "cyclonedx":
+            sbom_data = app_data.get("sbom_data")
+        elif format == "spdx":
+            sbom_data = app_data.get("spdx_data")
+        else:
+            sbom_data = app_data.get("sbom_data")  # Default to CycloneDX
         
         if not sbom_data:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail="SBOM data not available for this application"
-            )
-        
-        stored_format = app_data.get("sbom_format", "cyclonedx")
-        
-        if format != stored_format:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"SBOM is stored in {stored_format} format. Requested format: {format}"
+                detail=f"SBOM data in {format} format not available for this application"
             )
         
         return sbom_data

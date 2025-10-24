@@ -44,17 +44,22 @@ class SBOMService:
     async def update_application_sbom(
         self,
         app_id: str,
-        sbom_data: Dict[str, Any],
+        cyclonedx_data: Dict[str, Any],
+        spdx_data: Dict[str, Any],
         components: List[Dict],
         platform: str = "unknown"
     ) -> None:
+        """
+        Store BOTH CycloneDX and SPDX formats.
+        """
         
         try:
             component_count = await self._store_components(app_id, components)
             
             update_data = {
-                "sbom_data": sbom_data,
-                "sbom_format": "cyclonedx" if "bomFormat" in sbom_data else "spdx",
+                "sbom_data": cyclonedx_data,  # Primary format
+                "spdx_data": spdx_data,        # Secondary format (NEW)
+                "sbom_format": "cyclonedx",
                 "component_count": component_count,
                 "platform": platform,
                 "status": "completed",
@@ -78,11 +83,15 @@ class SBOMService:
         app_id: str,
         components: List[Dict]
     ) -> int:
+        """
+        Store components with proper duplicate handling.
+        """
         
         stored_count = 0
         
         for comp_data in components:
             try:
+                # Check if component exists by name + version + purl
                 existing = self.client.table("components").select("id").eq(
                     "name", comp_data["name"]
                 ).eq("version", comp_data.get("version", "")).execute()
@@ -90,6 +99,7 @@ class SBOMService:
                 if existing.data:
                     component_id = existing.data[0]["id"]
                 else:
+                    # Create new component
                     component = {
                         "id": str(uuid.uuid4()),
                         "name": comp_data["name"],
@@ -107,16 +117,26 @@ class SBOMService:
                     response = self.client.table("components").insert(component).execute()
                     component_id = component["id"]
                 
-                relationship = {
-                    "id": str(uuid.uuid4()),
-                    "application_id": app_id,
-                    "component_id": component_id,
-                    "relationship_type": "direct",
-                    "created_at": datetime.utcnow().isoformat()
-                }
+                # Check if relationship already exists
+                existing_rel = self.client.table("application_components").select("id").eq(
+                    "application_id", app_id
+                ).eq("component_id", component_id).execute()
                 
-                self.client.table("application_components").insert(relationship).execute()
-                stored_count += 1
+                if not existing_rel.data:
+                    # Create relationship only if it doesn't exist
+                    relationship = {
+                        "id": str(uuid.uuid4()),
+                        "application_id": app_id,
+                        "component_id": component_id,
+                        "relationship_type": "direct",
+                        "created_at": datetime.utcnow().isoformat()
+                    }
+                    
+                    self.client.table("application_components").insert(relationship).execute()
+                    stored_count += 1
+                else:
+                    # Relationship already exists, still count it
+                    stored_count += 1
                 
             except Exception as e:
                 print(f"Failed to store component {comp_data.get('name')}: {str(e)}")

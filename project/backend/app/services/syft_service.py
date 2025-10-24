@@ -2,7 +2,7 @@ import subprocess
 import json
 import tempfile
 import os
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, Tuple
 from pathlib import Path
 
 
@@ -27,55 +27,64 @@ class SyftService:
         self, 
         file_path: str, 
         output_format: str = "cyclonedx-json"
-    ) -> Dict[str, Any]:
+    ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+        """
+        Generate SBOM in BOTH CycloneDX and SPDX formats.
+        Returns: (cyclonedx_data, spdx_data)
+        """
         
         if not self.check_syft_installed():
             raise Exception("Syft is not installed or not in PATH")
         
         try:
-            with tempfile.NamedTemporaryFile(
-                mode='w+', 
-                suffix='.json', 
-                delete=False
-            ) as temp_output:
-                output_file = temp_output.name
+            # Generate CycloneDX SBOM
+            cyclonedx_data = await self._run_syft(file_path, "cyclonedx-json")
             
-            cmd = [
-                self.syft_binary,
-                "scan",
-                file_path,
-                "-o", output_format,
-                "--file", output_file
-            ]
+            # Generate SPDX SBOM
+            spdx_data = await self._run_syft(file_path, "spdx-json")
             
-            print(f"Running Syft: {' '.join(cmd)}")
+            return cyclonedx_data, spdx_data
             
-            result = subprocess.run(
-                cmd,
-                capture_output=True,
-                text=True,
-                timeout=300
-            )
-            
-            if result.returncode != 0:
-                error_msg = result.stderr or result.stdout
-                raise Exception(f"Syft analysis failed: {error_msg}")
-            
-            with open(output_file, 'r', encoding='utf-8') as f:
-                sbom_data = json.load(f)
-            
-            os.unlink(output_file)
-            
-            print(f"Syft analysis completed successfully")
-            
-            return sbom_data
-            
-        except subprocess.TimeoutExpired:
-            raise Exception("Syft analysis timed out")
-        except json.JSONDecodeError as e:
-            raise Exception(f"Failed to parse Syft output: {str(e)}")
         except Exception as e:
             raise Exception(f"SBOM generation failed: {str(e)}")
+    
+    async def _run_syft(self, file_path: str, output_format: str) -> Dict[str, Any]:
+        """Run Syft with specified format."""
+        
+        with tempfile.NamedTemporaryFile(
+            mode='w+', 
+            suffix='.json', 
+            delete=False
+        ) as temp_output:
+            output_file = temp_output.name
+        
+        cmd = [
+            self.syft_binary,
+            "scan",
+            file_path,
+            "-o", output_format,
+            "--file", output_file
+        ]
+        
+        print(f"Running Syft: {' '.join(cmd)}")
+        
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=300
+        )
+        
+        if result.returncode != 0:
+            error_msg = result.stderr or result.stdout
+            raise Exception(f"Syft analysis failed: {error_msg}")
+        
+        with open(output_file, 'r', encoding='utf-8') as f:
+            sbom_data = json.load(f)
+        
+        os.unlink(output_file)
+        
+        return sbom_data
     
     def parse_cyclonedx_components(self, sbom_data: Dict[str, Any]) -> list:
         components = []
@@ -132,7 +141,35 @@ class SyftService:
                 return ref.get("referenceLocator")
         return None
     
+    def detect_platform_from_file(self, filename: str) -> str:
+        """
+        Detect platform from filename extension.
+        This is more reliable than content analysis.
+        """
+        filename_lower = filename.lower()
+        
+        # Mobile platforms
+        if filename_lower.endswith('.apk'):
+            return 'android'
+        if filename_lower.endswith('.ipa'):
+            return 'ios'
+        
+        # Desktop platforms
+        if filename_lower.endswith('.exe') or filename_lower.endswith('.msi'):
+            return 'windows'
+        if filename_lower.endswith('.app') or filename_lower.endswith('.dmg'):
+            return 'macos'
+        if filename_lower.endswith('.deb') or filename_lower.endswith('.rpm'):
+            return 'linux'
+        
+        # Archives - try to detect from content
+        if filename_lower.endswith(('.zip', '.tar', '.tar.gz', '.tgz')):
+            return 'unknown'
+        
+        return 'unknown'
+    
     def detect_platform_from_sbom(self, sbom_data: Dict[str, Any]) -> str:
+        """Fallback: detect from SBOM content."""
         components = sbom_data.get("components", []) or sbom_data.get("packages", [])
         
         for comp in components:

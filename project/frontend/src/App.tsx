@@ -8,6 +8,7 @@ import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { useAuthStore } from './store/authStore';
 import { UploadPage } from './pages/UploadPage';
 import { ApplicationsPage } from './pages/ApplicationsPage';
+import { ApplicationDetailPage } from './pages/ApplicationDetailPage';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -127,6 +128,14 @@ function App() {
           element={
             <ProtectedRoute>
               <ApplicationsPage />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/applications/:id" 
+          element={
+            <ProtectedRoute>
+              <ApplicationDetailPage />
             </ProtectedRoute>
           } 
         />
