@@ -18,7 +18,7 @@ export interface UploadStatusResponse {
 }
 
 export const uploadService = {
-  // Upload file
+  // Upload file with increased timeout for large files
   async uploadFile(
     file: File,
     onProgress?: (progress: number) => void
@@ -30,6 +30,9 @@ export const uploadService = {
       headers: {
         'Content-Type': 'multipart/form-data',
       },
+      timeout: 300000,
+      maxContentLength: Infinity,
+      maxBodyLength: Infinity,
       onUploadProgress: (progressEvent) => {
         if (progressEvent.total && onProgress) {
           const progress = Math.round(

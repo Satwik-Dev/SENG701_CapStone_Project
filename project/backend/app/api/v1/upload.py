@@ -8,6 +8,7 @@ from app.core.config import settings
 from supabase import Client
 import tempfile
 import os
+import traceback
 
 
 router = APIRouter(prefix="/upload", tags=["Upload"])
@@ -32,9 +33,8 @@ async def process_sbom_background(
     supabase_client: Client
 ):
     """
-    Background task to process SBOM with improved error handling.
+    Background task to process SBOM.
     """
-    
     temp_path = None
     
     try:
@@ -81,6 +81,7 @@ async def process_sbom_background(
         
     except Exception as e:
         print(f"❌ Background processing failed: {str(e)}")
+        print(f"❌ Full traceback: {traceback.format_exc()}")
         
         # Update status to failed
         try:
@@ -88,8 +89,8 @@ async def process_sbom_background(
                 "status": "failed",
                 "error_message": str(e)
             }).eq("id", app_id).execute()
-        except:
-            pass
+        except Exception as db_error:
+            print(f"❌ Failed to update DB: {str(db_error)}")
         
         # Clean up temp file
         if temp_path and os.path.exists(temp_path):
@@ -109,50 +110,160 @@ async def upload_file(
     supabase_client: Client = Depends(get_supabase_client)
 ):
     """
-    Upload file with improved platform detection.
+    Upload file with streaming support for large files.
+    
+    Supported file types:
+    - Mobile: .apk (Android), .ipa (iOS)
+    - Desktop: .exe (Windows), .app (macOS), .deb/.rpm (Linux)
+    - Source Code: .zip, .tar, .tar.gz, .tgz
+    
+    Maximum file size: 50MB
     """
     
+    temp_upload_path = None
+    
     try:
-        # Read file
-        file_content = await file.read()
-        file_size = len(file_content)
+        print(f"\n{'='*60}")
+        print(f"🔵 UPLOAD REQUEST RECEIVED")
+        print(f"{'='*60}")
         
-        # Validate size
+        # Validate filename
+        if not file.filename:
+            print("❌ ERROR: No filename provided")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Filename is required"
+            )
+        
+        print(f"Filename: {file.filename}")
+        print(f"Content-Type: {file.content_type}")
+        print(f"User ID: {user_id}")
+        
+        # Stream file to disk to avoid memory issues with large files
+        print(f"📖 Streaming file to disk...")
+        try:
+            with tempfile.NamedTemporaryFile(delete=False, suffix=f"_upload_{file.filename}") as temp_upload:
+                temp_upload_path = temp_upload.name
+                
+                # Write in chunks to avoid memory issues
+                chunk_size = 1024 * 1024  # 1MB chunks
+                file_size = 0
+                while chunk := await file.read(chunk_size):
+                    temp_upload.write(chunk)
+                    file_size += len(chunk)
+                    if file_size % (5 * 1024 * 1024) == 0:  # Log every 5MB
+                        print(f"  Streamed {file_size / (1024*1024):.1f} MB...")
+            
+            print(f"✅ File streamed successfully: {file_size} bytes ({file_size/(1024*1024):.2f} MB)")
+            
+        except Exception as read_error:
+            print(f"❌ ERROR streaming file: {str(read_error)}")
+            print(f"❌ Full traceback: {traceback.format_exc()}")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to read file: {str(read_error)}"
+            )
+        
+        # Validate file size
+        if file_size == 0:
+            print("❌ ERROR: File is empty")
+            if temp_upload_path and os.path.exists(temp_upload_path):
+                os.unlink(temp_upload_path)
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="File is empty"
+            )
+        
         if file_size > settings.MAX_FILE_SIZE:
+            print(f"❌ ERROR: File too large ({file_size} > {settings.MAX_FILE_SIZE})")
+            if temp_upload_path and os.path.exists(temp_upload_path):
+                os.unlink(temp_upload_path)
             raise HTTPException(
                 status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
                 detail=f"File too large. Maximum size is {settings.MAX_FILE_SIZE / (1024*1024):.0f}MB"
             )
         
+        # Read file content for storage upload
+        print(f"📂 Reading file for storage upload...")
+        with open(temp_upload_path, 'rb') as f:
+            file_content = f.read()
+        
         # Detect platform from filename
-        syft_service = SyftService()
-        platform = syft_service.detect_platform_from_file(file.filename)
+        print(f"🔍 Detecting platform...")
+        try:
+            syft_service = SyftService()
+            platform = syft_service.detect_platform_from_file(file.filename)
+            print(f"✅ Platform detected: {platform}")
+        except Exception as platform_error:
+            print(f"⚠️  Platform detection failed: {str(platform_error)}")
+            platform = "unknown"
         
         # Upload to storage
-        upload_result = await storage_service.upload_file(
-            file_content,
-            file.filename,
-            user_id
-        )
+        print(f"☁️  Uploading to Supabase Storage...")
+        try:
+            upload_result = await storage_service.upload_file(
+                file_content,
+                file.filename,
+                user_id
+            )
+            print(f"✅ File uploaded: {upload_result['storage_path']}")
+        except Exception as storage_error:
+            print(f"❌ ERROR uploading to storage: {str(storage_error)}")
+            print(f"❌ Full traceback: {traceback.format_exc()}")
+            if temp_upload_path and os.path.exists(temp_upload_path):
+                os.unlink(temp_upload_path)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Storage upload failed: {str(storage_error)}"
+            )
         
         # Create application record with detected platform
-        app_id = await sbom_service.store_application(
-            user_id=user_id,
-            filename=file.filename,
-            file_size=upload_result["file_size"],
-            file_hash=upload_result["file_hash"],
-            storage_path=upload_result["storage_path"],
-            platform=platform
-        )
+        print(f"💾 Creating database record...")
+        try:
+            app_id = await sbom_service.store_application(
+                user_id=user_id,
+                filename=file.filename,
+                file_size=upload_result["file_size"],
+                file_hash=upload_result["file_hash"],
+                storage_path=upload_result["storage_path"],
+                platform=platform
+            )
+            print(f"✅ Application created: {app_id}")
+        except Exception as db_error:
+            print(f"❌ ERROR creating database record: {str(db_error)}")
+            print(f"❌ Full traceback: {traceback.format_exc()}")
+            if temp_upload_path and os.path.exists(temp_upload_path):
+                os.unlink(temp_upload_path)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Database error: {str(db_error)}"
+            )
         
         # Start background processing
-        background_tasks.add_task(
-            process_sbom_background,
-            app_id,
-            file_content,
-            file.filename,
-            supabase_client
-        )
+        print(f"🚀 Starting background SBOM generation...")
+        try:
+            background_tasks.add_task(
+                process_sbom_background,
+                app_id,
+                file_content,
+                file.filename,
+                supabase_client
+            )
+            print(f"✅ Background task queued")
+        except Exception as bg_error:
+            print(f"⚠️  Background task failed to queue: {str(bg_error)}")
+        
+        # Clean up temp upload file
+        if temp_upload_path and os.path.exists(temp_upload_path):
+            try:
+                os.unlink(temp_upload_path)
+                print(f"🗑️  Temp file cleaned up")
+            except:
+                pass
+        
+        print(f"{'='*60}")
+        print(f"✅ UPLOAD SUCCESSFUL")
+        print(f"{'='*60}\n")
         
         return {
             "message": "File uploaded successfully. SBOM generation in progress.",
@@ -164,8 +275,30 @@ async def upload_file(
         }
         
     except HTTPException:
+        # Clean up temp file on HTTP errors
+        if temp_upload_path and os.path.exists(temp_upload_path):
+            try:
+                os.unlink(temp_upload_path)
+            except:
+                pass
         raise
     except Exception as e:
+        print(f"\n{'='*60}")
+        print(f"❌ UPLOAD FAILED - UNHANDLED EXCEPTION")
+        print(f"{'='*60}")
+        print(f"Error: {str(e)}")
+        print(f"Type: {type(e).__name__}")
+        print(f"Full traceback:")
+        print(traceback.format_exc())
+        print(f"{'='*60}\n")
+        
+        # Clean up temp file
+        if temp_upload_path and os.path.exists(temp_upload_path):
+            try:
+                os.unlink(temp_upload_path)
+            except:
+                pass
+        
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Upload failed: {str(e)}"
@@ -198,6 +331,7 @@ async def get_upload_status(
     except HTTPException:
         raise
     except Exception as e:
+        print(f"❌ Status check failed: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e)

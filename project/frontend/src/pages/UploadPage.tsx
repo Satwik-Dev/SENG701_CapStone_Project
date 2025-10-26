@@ -182,7 +182,6 @@ export const UploadPage: React.FC = () => {
                     <input
                       type="file"
                       onChange={handleFileInputChange}
-                      accept={acceptedTypes.join(',')}
                       className="hidden"
                       id="file-input"
                     />
@@ -209,13 +208,13 @@ export const UploadPage: React.FC = () => {
                       <Button variant="primary" onClick={handleUpload} disabled={uploading}>
                         {uploading ? (
                           <>
-                            <Loader2 className="w-5 h-5 animate-spin" />
+                            <Loader2 className="w-4 h-4 animate-spin" />
                             Uploading... {uploadProgress}%
                           </>
                         ) : (
                           <>
-                            <Upload className="w-5 h-5" />
-                            Upload & Analyze
+                            <Upload className="w-4 h-4" />
+                            Upload
                           </>
                         )}
                       </Button>
@@ -230,53 +229,66 @@ export const UploadPage: React.FC = () => {
               {/* Upload Progress */}
               {uploading && (
                 <div className="mt-6">
-                  <div className="flex justify-between text-sm text-gray-600 mb-2">
-                    <span>Uploading...</span>
-                    <span>{uploadProgress}%</span>
-                  </div>
-                  <div className="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
-                    <div
-                      className="bg-primary-600 h-full transition-all duration-300 rounded-full"
-                      style={{ width: `${uploadProgress}%` }}
-                    />
+                  <div className="relative pt-1">
+                    <div className="flex mb-2 items-center justify-between">
+                      <div>
+                        <span className="text-xs font-semibold inline-block text-primary-600">
+                          Uploading
+                        </span>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-xs font-semibold inline-block text-primary-600">
+                          {uploadProgress}%
+                        </span>
+                      </div>
+                    </div>
+                    <div className="overflow-hidden h-2 mb-4 text-xs flex rounded bg-primary-200">
+                      <div
+                        style={{ width: `${uploadProgress}%` }}
+                        className="shadow-none flex flex-col text-center whitespace-nowrap text-white justify-center bg-primary-500 transition-all duration-300"
+                      />
+                    </div>
                   </div>
                 </div>
               )}
 
               {/* File Type Info */}
-              <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <div className="flex items-start">
-                  <AlertCircle className="w-5 h-5 text-blue-600 mr-3 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <h4 className="font-semibold text-blue-900 text-sm mb-1">
-                      Supported File Types
-                    </h4>
-                    <p className="text-sm text-blue-800">
-                      <strong>Mobile:</strong> .apk (Android), .ipa (iOS)
-                      <br />
-                      <strong>Desktop:</strong> .exe (Windows), .app (macOS), .deb/.rpm (Linux)
-                      <br />
-                      <strong>Source Code:</strong> .zip, .tar, .tar.gz
-                      <br />
-                      <strong>Maximum size:</strong> 50MB
-                    </p>
+              <div className="mt-8 pt-8 border-t border-gray-200">
+                <h4 className="text-sm font-semibold text-gray-900 mb-3">
+                  Supported File Types
+                </h4>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div className="text-xs text-gray-600">
+                    <span className="font-medium">Mobile:</span> .apk, .ipa
+                  </div>
+                  <div className="text-xs text-gray-600">
+                    <span className="font-medium">Desktop:</span> .exe, .app
+                  </div>
+                  <div className="text-xs text-gray-600">
+                    <span className="font-medium">Linux:</span> .deb, .rpm
+                  </div>
+                  <div className="text-xs text-gray-600">
+                    <span className="font-medium">Archives:</span> .zip, .tar
                   </div>
                 </div>
+                <p className="text-xs text-gray-500 mt-3">
+                  Maximum file size: {maxFileSize / (1024 * 1024)}MB
+                </p>
               </div>
             </div>
           </div>
         ) : (
-          /* Success State */
-          <div className="max-w-2xl mx-auto">
-            <div className="bg-white rounded-xl shadow-lg p-8 text-center border border-gray-200">
-              <CheckCircle className="w-20 h-20 text-green-500 mx-auto mb-4" />
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">
+          <div className="max-w-3xl mx-auto">
+            <div className="bg-white rounded-xl shadow-lg p-8 border border-gray-200 text-center">
+              <div className="flex items-center justify-center mb-6">
+                <CheckCircle className="w-20 h-20 text-green-500" />
+              </div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-3">
                 Upload Successful!
               </h2>
               <p className="text-gray-600 mb-6">
                 Your file has been uploaded and SBOM generation is in progress.
-                <br />
-                This may take a few moments depending on the file size.
+                This may take a few minutes depending on the file size.
               </p>
               <div className="flex gap-3 justify-center">
                 <Button 
@@ -285,11 +297,8 @@ export const UploadPage: React.FC = () => {
                 >
                   View Application
                 </Button>
-                <Button variant="secondary" onClick={() => navigate('/applications')}>
-                  View All Applications
-                </Button>
                 <Button variant="secondary" onClick={handleReset}>
-                  Upload Another File
+                  Upload Another
                 </Button>
               </div>
             </div>
