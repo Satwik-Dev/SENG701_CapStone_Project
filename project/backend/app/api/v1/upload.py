@@ -30,6 +30,7 @@ def get_sbom_service(
 
 
 async def process_sbom_background(
+    user_id: str,
     app_id: str,
     file_content: bytes,
     filename: str,
@@ -74,6 +75,7 @@ async def process_sbom_background(
         
         # Store SBOM with BOTH formats
         await sbom_service.update_application_sbom(
+            user_id,
             app_id, 
             cyclonedx_data, 
             spdx_data,
@@ -255,7 +257,7 @@ async def upload_file(
             try:
                 def run_background():
                     asyncio.run(process_sbom_background(
-                        app_id, file_content, file.filename, supabase_client
+                        user_id, app_id, file_content, file.filename, supabase_client
                     ))
                 
                 thread = threading.Thread(target=run_background, daemon=True)

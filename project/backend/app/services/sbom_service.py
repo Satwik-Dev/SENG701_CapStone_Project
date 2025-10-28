@@ -83,7 +83,7 @@ class SBOMService:
                     self.client.table("applications").insert(new_app_data).execute()
                     
                     # Copy component relationships if they exist
-                    await self._copy_component_relationships(existing_app['id'], new_app_id)
+                    await self._copy_component_relationships(user_id, existing_app['id'], new_app_id)
                     
                     print(f"✅ Created new application record for user {user_id} with existing SBOM data")
                     return new_app_id, False  # Not a new SBOM generation
@@ -143,6 +143,7 @@ class SBOMService:
     
     async def _copy_component_relationships(
         self,
+        user_id: str,
         source_app_id: str,
         target_app_id: str
     ) -> None:
@@ -155,6 +156,7 @@ class SBOMService:
             relationships = self.client.table("application_components")\
                 .select("component_id")\
                 .eq("application_id", source_app_id)\
+                .eq("user_id", user_id)\
                 .execute()
             
             if relationships.data:
@@ -164,7 +166,8 @@ class SBOMService:
                 new_relationships = [
                     {
                         "application_id": target_app_id,
-                        "component_id": rel["component_id"]
+                        "component_id": rel["component_id"],
+                        "user_id": user_id
                     }
                     for rel in relationships.data
                 ]
@@ -186,6 +189,7 @@ class SBOMService:
     
     async def update_application_sbom(
         self,
+        user_id: str,
         app_id: str,
         cyclonedx_data: Dict[str, Any],
         spdx_data: Dict[str, Any],
@@ -197,7 +201,7 @@ class SBOMService:
         """
         
         try:
-            component_count = await self._store_components(app_id, components)
+            component_count = await self._store_components(user_id, app_id, components)
             
             update_data = {
                 "sbom_data": cyclonedx_data,  # Primary format
@@ -224,6 +228,7 @@ class SBOMService:
     
     async def _store_components(
         self,
+        user_id: str,
         app_id: str,
         components: List[Dict]
     ) -> int:
@@ -254,7 +259,8 @@ class SBOMService:
                         "version": component["version"],
                         "type": component.get("type", "library"),
                         "license": component.get("license"),
-                        "purl": component.get("purl")
+                        "purl": component.get("purl"),
+                        "user_id": user_id
                     }
                     
                     self.client.table("components").insert(component_data).execute()
@@ -263,7 +269,8 @@ class SBOMService:
                 # Use upsert to handle duplicates gracefully
                 relationship = {
                     "application_id": app_id,
-                    "component_id": component_id
+                    "component_id": component_id,
+                    "user_id": user_id
                 }
                 
                 self.client.table("application_components")\
