@@ -26,8 +26,11 @@ export const DashboardPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   // Fetch dashboard data
-  const fetchDashboardData = async () => {
-    setLoading(true);
+  const fetchDashboardData = async (silent = false) => {
+    if (!silent) {
+      setLoading(true);
+    }
+    
     try {
       // Fetch recent applications
       const appsData = await applicationService.getApplications({
@@ -51,14 +54,26 @@ export const DashboardPage: React.FC = () => {
       });
     } catch (error: any) {
       console.error('Failed to load dashboard data:', error);
-      toast.error('Failed to load dashboard data');
+      if (!silent) {
+        toast.error('Failed to load dashboard data');
+      }
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   };
 
   useEffect(() => {
-    fetchDashboardData();
+    fetchDashboardData(false);// initial load
+    
+    // silent Auto-refresh every 10 seconds
+    const interval = setInterval(() => {
+      fetchDashboardData(true);
+    }, 10000);
+    
+    // Cleanup on unmount
+    return () => clearInterval(interval);
   }, []);
 
   return (

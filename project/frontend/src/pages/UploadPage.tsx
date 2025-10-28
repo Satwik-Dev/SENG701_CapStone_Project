@@ -101,6 +101,9 @@ export const UploadPage: React.FC = () => {
       setUploadComplete(true);
       toast.success('File uploaded successfully! SBOM generation in progress...');
 
+      // Poll for completion status before allowing navigation
+      pollUploadStatus(response.application_id);
+
     } catch (error: any) {
       const errorMessage = error.response?.data?.detail || 'Upload failed';
       toast.error(errorMessage);
@@ -108,6 +111,39 @@ export const UploadPage: React.FC = () => {
     } finally {
       setUploading(false);
     }
+  };
+
+  // Poll upload status until complete
+  const pollUploadStatus = async (appId: string) => {
+    const maxAttempts = 60; // 5 minutes max (60 * 5 seconds)
+    let attempts = 0;
+
+    const checkStatus = async () => {
+      try {
+        const status = await uploadService.getUploadStatus(appId);
+        
+        if (status.status === 'completed') {
+          toast.success('SBOM generation completed!');
+          return true;
+        } else if (status.status === 'failed') {
+          toast.error(`Processing failed: ${status.error_message}`);
+          return true;
+        }
+        
+        return false; // Still processing
+      } catch (error) {
+        return false;
+      }
+    };
+
+    const interval = setInterval(async () => {
+      attempts++;
+      const isDone = await checkStatus();
+      
+      if (isDone || attempts >= maxAttempts) {
+        clearInterval(interval);
+      }
+    }, 5000); // Check every 5 seconds
   };
 
   // Reset form
@@ -293,9 +329,9 @@ export const UploadPage: React.FC = () => {
               <div className="flex gap-3 justify-center">
                 <Button 
                   variant="primary" 
-                  onClick={() => navigate(`/applications/${uploadedAppId}`)}
+                  onClick={() => navigate('/applications')}
                 >
-                  View Application
+                  View All Applications
                 </Button>
                 <Button variant="secondary" onClick={handleReset}>
                   Upload Another

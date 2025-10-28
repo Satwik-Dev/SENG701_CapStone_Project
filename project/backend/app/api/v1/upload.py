@@ -6,9 +6,12 @@ from app.services.sbom_service import SBOMService
 from app.core.database import get_supabase_client
 from app.core.config import settings
 from supabase import Client
+from concurrent.futures import ThreadPoolExecutor
 import tempfile
 import os
 import traceback
+import asyncio
+import threading
 
 
 router = APIRouter(prefix="/upload", tags=["Upload"])
@@ -54,7 +57,12 @@ async def process_sbom_background(
         print(f"Detected platform from filename: {platform}")
         
         # Generate BOTH SBOMs
-        cyclonedx_data, spdx_data = await syft_service.generate_sbom(temp_path)
+        loop = asyncio.get_event_loop()
+        with ThreadPoolExecutor() as executor:
+            cyclonedx_data, spdx_data = await loop.run_in_executor(
+                executor, 
+                lambda: syft_service.generate_sbom_sync(temp_path)
+            )
         
         # Parse components from CycloneDX
         components = syft_service.parse_cyclonedx_components(cyclonedx_data)
@@ -102,7 +110,6 @@ async def process_sbom_background(
 
 @router.post("/")
 async def upload_file(
-    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     user_id: str = Depends(get_current_user_id),
     storage_service: StorageService = Depends(get_storage_service),
@@ -240,16 +247,17 @@ async def upload_file(
             )
         
         # Start background processing
+        # Start background processing in separate thread
         print(f"🚀 Starting background SBOM generation...")
         try:
-            background_tasks.add_task(
-                process_sbom_background,
-                app_id,
-                file_content,
-                file.filename,
-                supabase_client
-            )
-            print(f"✅ Background task queued")
+            def run_background():
+                asyncio.run(process_sbom_background(
+                    app_id, file_content, file.filename, supabase_client
+                ))
+            
+            thread = threading.Thread(target=run_background, daemon=True)
+            thread.start()
+            print(f"✅ Background task started in separate thread")
         except Exception as bg_error:
             print(f"⚠️  Background task failed to queue: {str(bg_error)}")
         

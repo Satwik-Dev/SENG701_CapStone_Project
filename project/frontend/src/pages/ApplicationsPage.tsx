@@ -28,8 +28,11 @@ export const ApplicationsPage: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<string>('');
 
   // Fetch applications
-  const fetchApplications = async () => {
-    setLoading(true);
+  const fetchApplications = async (silent = false) => {
+    if (!silent) {
+      setLoading(true);
+    }
+    
     try {
       const data = await applicationService.getApplications({
         page,
@@ -41,16 +44,27 @@ export const ApplicationsPage: React.FC = () => {
       setApplications(data.items);
       setTotalPages(data.total_pages);
     } catch (error: any) {
-      toast.error('Failed to load applications');
+      if (!silent) {
+        toast.error('Failed to load applications');
+      }
       console.error(error);
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   };
 
   // Load applications on mount and filter change
   useEffect(() => {
-    fetchApplications();
+    fetchApplications(false);//intial load with loading state
+    
+    // silent auto-refresh every 10 seconds
+    const interval = setInterval(() => {
+      fetchApplications(true);//silent upgrade
+    }, 10000);
+    
+    return () => clearInterval(interval);
   }, [page, platformFilter, statusFilter]);
 
   // Handle delete

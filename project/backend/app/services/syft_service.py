@@ -48,6 +48,45 @@ class SyftService:
         except Exception as e:
             raise Exception(f"SBOM generation failed: {str(e)}")
     
+    def generate_sbom_sync(self, file_path: str) -> tuple:
+        """
+        Synchronous version for thread pool execution.
+        Returns: (cyclonedx_data, spdx_data)
+        """
+        import subprocess
+        import tempfile
+        import json
+        
+        # Generate CycloneDX
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.json') as cyclone_tmp:
+            cyclone_path = cyclone_tmp.name
+        
+        subprocess.run([
+            'syft', 'scan', file_path,
+            '-o', 'cyclonedx-json',
+            '--file', cyclone_path
+        ], check=True, capture_output=True)
+        
+        with open(cyclone_path, 'r') as f:
+            cyclonedx_data = json.load(f)
+        os.unlink(cyclone_path)
+        
+        # Generate SPDX
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.json') as spdx_tmp:
+            spdx_path = spdx_tmp.name
+        
+        subprocess.run([
+            'syft', 'scan', file_path,
+            '-o', 'spdx-json',
+            '--file', spdx_path
+        ], check=True, capture_output=True)
+        
+        with open(spdx_path, 'r') as f:
+            spdx_data = json.load(f)
+        os.unlink(spdx_path)
+        
+        return cyclonedx_data, spdx_data
+    
     async def _run_syft(self, file_path: str, output_format: str) -> Dict[str, Any]:
         """Run Syft with specified format."""
         

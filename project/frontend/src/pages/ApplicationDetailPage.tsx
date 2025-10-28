@@ -30,22 +30,44 @@ export const ApplicationDetailPage: React.FC = () => {
   // Fetch application details
   useEffect(() => {
     if (id) {
-      fetchApplication();
+      fetchApplication(false);
+      
+      // Auto-refresh every 5 seconds, stop when done
+      const interval = setInterval(() => {
+        if (application?.status !== 'completed' && application?.status !== 'failed') 
+        {
+          fetchApplication(true); // Silent update while processing
+        }
+      }, 5000);
+      
+      // Stop polling if status is completed or failed
+      //if (application?.status === 'completed' || application?.status === 'failed') {
+      //  clearInterval(interval);
+      //}
+      
+      return () => clearInterval(interval);
     }
-  }, [id]);
+  }, [id, application?.status]);
 
-  const fetchApplication = async () => {
+  const fetchApplication = async (silent = false) => {
     if (!id) return;
     
-    setLoading(true);
+    if (!silent) {
+      setLoading(true);
+    }
+    
     try {
       const data = await applicationService.getApplication(id);
       setApplication(data);
     } catch (error: any) {
-      toast.error('Failed to load application details');
+      if (!silent) {
+        toast.error('Failed to load application details');
+      }
       console.error(error);
     } finally {
-      setLoading(false);
+      if (!silent) {
+        setLoading(false);
+      }
     }
   };
 
