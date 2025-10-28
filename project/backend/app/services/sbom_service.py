@@ -129,7 +129,10 @@ class SBOMService:
                 "created_at": datetime.utcnow().isoformat()
             }
             
-            response = self.client.table("applications").insert(app_data).execute()
+            # Use service client to insert (bypasses RLS for creation)
+            from app.core.database import get_supabase_client
+            service_client = get_supabase_client()
+            response = service_client.table("applications").insert(app_data).execute()
             print(f"✅ New application created: {app_data['id']}")
             
             return app_data["id"], True  # New record created
@@ -145,15 +148,11 @@ class SBOMService:
     ) -> None:
         """
         Copy component relationships from one application to another.
-        CRITICAL FIX: Uses service client to bypass RLS.
         """
         try:
-            # CRITICAL: Use service client to bypass RLS
-            from app.core.database import get_supabase_client
-            service_client = get_supabase_client()
-            
-            # Get all component relationships from source (bypassing RLS)
-            relationships = service_client.table("application_components")\
+            # Get all component relationships from source
+            # Since application_components has RLS DISABLED, this works fine
+            relationships = self.client.table("application_components")\
                 .select("component_id")\
                 .eq("application_id", source_app_id)\
                 .execute()
@@ -171,8 +170,7 @@ class SBOMService:
                 ]
                 
                 if new_relationships:
-                    # Insert using service client (bypassing RLS)
-                    service_client.table("application_components")\
+                    self.client.table("application_components")\
                         .insert(new_relationships)\
                         .execute()
                     
