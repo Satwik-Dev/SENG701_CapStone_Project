@@ -62,12 +62,21 @@ class StorageService:
             print(f"  Storage: Uploading {len(file_content)/(1024*1024):.2f}MB to {file_path}...")
             print(f"  Storage: This may take a few minutes for large files...")
             
-            # Upload to Supabase Storage with increased timeout
-            response = self.client.storage.from_(self.bucket).upload(
-                path=file_path,
-                file=file_content,
-                file_options={"content-type": "application/octet-stream"}
-            )
+            # Try to upload, if duplicate exists, use upsert instead
+            try:
+                response = self.client.storage.from_(self.bucket).upload(
+                    path=file_path,
+                    file=file_content,
+                    file_options={"content-type": "application/octet-stream", "upsert": "true"}
+                )
+            except Exception as upload_error:
+                print(f"  Storage: File may exist, trying upsert...")
+                # File exists, so just update it
+                response = self.client.storage.from_(self.bucket).update(
+                    path=file_path,
+                    file=file_content,
+                    file_options={"content-type": "application/octet-stream"}
+                )
             
             print(f"  Storage: Upload complete!")
             
