@@ -32,9 +32,8 @@ class SBOMService:
             print(f"🔍 Checking for existing application with hash: {file_hash[:16]}...")
             
             existing_response = self.client.table("applications")\
-                .select("id, user_id, status, name, original_filename, component_count, platform, created_at")\
+                .select("*")\
                 .eq("file_hash", file_hash)\
-                .order("created_at", desc=True)\
                 .limit(1)\
                 .execute()
             
