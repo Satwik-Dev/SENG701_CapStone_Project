@@ -119,12 +119,14 @@ async def upload_file(
     """
     Upload file with streaming support for large files.
     
-    Supported file types:
+    Supports:
     - Mobile: .apk (Android), .ipa (iOS)
     - Desktop: .exe (Windows), .app (macOS), .deb/.rpm (Linux)
     - Source Code: .zip, .tar, .tar.gz, .tgz
     
     Maximum file size: 50MB
+    
+    If the file has been uploaded before (based on hash), reuses existing SBOM data.
     """
     
     temp_upload_path = None
@@ -224,10 +226,11 @@ async def upload_file(
                 detail=f"Storage upload failed: {str(storage_error)}"
             )
         
-        # Create application record with detected platform
-        print(f"💾 Creating database record...")
+        # Create application record or get existing one
+        print(f"💾 Checking for existing application or creating new record...")
         try:
-            app_id = await sbom_service.store_application(
+            # MODIFIED: Now returns tuple (app_id, is_new)
+            app_id, is_new = await sbom_service.store_application(
                 user_id=user_id,
                 filename=file.filename,
                 file_size=upload_result["file_size"],
@@ -235,7 +238,7 @@ async def upload_file(
                 storage_path=upload_result["storage_path"],
                 platform=platform
             )
-            print(f"✅ Application created: {app_id}")
+            print(f"✅ Application {'created' if is_new else 'found existing'}: {app_id}")
         except Exception as db_error:
             print(f"❌ ERROR creating database record: {str(db_error)}")
             print(f"❌ Full traceback: {traceback.format_exc()}")
@@ -246,20 +249,22 @@ async def upload_file(
                 detail=f"Database error: {str(db_error)}"
             )
         
-        # Start background processing
-        # Start background processing in separate thread
-        print(f"🚀 Starting background SBOM generation...")
-        try:
-            def run_background():
-                asyncio.run(process_sbom_background(
-                    app_id, file_content, file.filename, supabase_client
-                ))
-            
-            thread = threading.Thread(target=run_background, daemon=True)
-            thread.start()
-            print(f"✅ Background task started in separate thread")
-        except Exception as bg_error:
-            print(f"⚠️  Background task failed to queue: {str(bg_error)}")
+        # MODIFIED: Only start background processing if this is a new file
+        if is_new:
+            print(f"🚀 Starting background SBOM generation for new file...")
+            try:
+                def run_background():
+                    asyncio.run(process_sbom_background(
+                        app_id, file_content, file.filename, supabase_client
+                    ))
+                
+                thread = threading.Thread(target=run_background, daemon=True)
+                thread.start()
+                print(f"✅ Background task started in separate thread")
+            except Exception as bg_error:
+                print(f"⚠️  Background task failed to queue: {str(bg_error)}")
+        else:
+            print(f"♻️  Using existing SBOM data, no background processing needed")
         
         # Clean up temp upload file
         if temp_upload_path and os.path.exists(temp_upload_path):
@@ -273,13 +278,17 @@ async def upload_file(
         print(f"✅ UPLOAD SUCCESSFUL")
         print(f"{'='*60}\n")
         
+        # MODIFIED: Enhanced response with duplicate info
         return {
-            "message": "File uploaded successfully. SBOM generation in progress.",
+            "message": "File uploaded successfully." + 
+                       (" SBOM generation in progress." if is_new else " Using existing SBOM data."),
             "application_id": app_id,
             "filename": file.filename,
             "file_size": file_size,
             "platform": platform,
-            "status": "processing"
+            "status": "processing" if is_new else "completed",
+            "is_duplicate": not is_new,
+            "reused_existing": not is_new
         }
         
     except HTTPException:
