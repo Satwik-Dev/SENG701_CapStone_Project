@@ -31,7 +31,11 @@ class SBOMService:
             # First, check if this file hash already exists
             print(f"🔍 Checking for existing application with hash: {file_hash[:16]}...")
             
-            existing_response = self.client.table("applications")\
+            # Query using service_role (bypasses RLS) to check ALL users
+            from app.core.database import get_supabase_client
+            service_client = get_supabase_client()  # Already uses SERVICE_KEY from database.py
+
+            existing_response = service_client.table("applications")\
                 .select("*")\
                 .eq("file_hash", file_hash)\
                 .limit(1)\
@@ -46,7 +50,7 @@ class SBOMService:
 
                 # CHECK: If same user already has this file, throw error (Case 3)
                 if existing_app['user_id'] == user_id:
-                    print(f"❌ Same user trying to re-upload same file")
+                    print(f"❌ Same user attempting re-upload")
                     raise Exception(f"You have already uploaded this file: {existing_app['original_filename']}")
                 
                 # If the file is already completed, we can return it immediately
