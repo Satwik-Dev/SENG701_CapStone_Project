@@ -28,13 +28,13 @@ class SBOMService:
         """
         
         try:
-            # First, check if this file hash already exists
+            # First, check if this file hash already exists (check ALL users)
             print(f"🔍 Checking for existing application with hash: {file_hash[:16]}...")
             
-            # Query using service_role (bypasses RLS) to check ALL users
+            # Use service client to bypass RLS and check ALL users
             from app.core.database import get_supabase_client
-            service_client = get_supabase_client()  # Already uses SERVICE_KEY from database.py
-
+            service_client = get_supabase_client()  # Already uses SERVICE_KEY
+            
             existing_response = service_client.table("applications")\
                 .select("*")\
                 .eq("file_hash", file_hash)\
@@ -47,8 +47,8 @@ class SBOMService:
                 print(f"   Status: {existing_app['status']}")
                 print(f"   Original user: {existing_app['user_id']}")
                 print(f"   Current user: {user_id}")
-
-                # CHECK: If same user already has this file, throw error (Case 3)
+                
+                # Case 3: Same user trying to re-upload - REJECT
                 if existing_app['user_id'] == user_id:
                     print(f"❌ Same user attempting re-upload")
                     raise Exception(f"You have already uploaded this file: {existing_app['original_filename']}")
@@ -60,44 +60,35 @@ class SBOMService:
                     # Create a new application record for this user that references the same SBOM
                     new_app_id = str(uuid.uuid4())
                     
-                    # Copy the SBOM data from the existing application
-                    existing_full = self.client.table("applications")\
-                        .select("*")\
-                        .eq("id", existing_app['id'])\
-                        .execute()
+                    new_app_data = {
+                        "id": new_app_id,
+                        "user_id": user_id,
+                        "name": filename.rsplit('.', 1)[0],
+                        "original_filename": filename,
+                        "file_size": file_size,
+                        "file_hash": file_hash,
+                        "storage_path": storage_path,
+                        "platform": existing_app.get('platform', platform),
+                        "status": "completed",  # Already processed
+                        "component_count": existing_app.get('component_count', 0),
+                        "sbom_data": existing_app.get('sbom_data'),
+                        "spdx_data": existing_app.get('spdx_data'),
+                        "sbom_format": existing_app.get('sbom_format', 'cyclonedx'),
+                        "analyzed_at": existing_app.get('analyzed_at'),
+                        "created_at": datetime.utcnow().isoformat(),
+                        "error_message": None
+                    }
                     
-                    if existing_full.data:
-                        existing_data = existing_full.data[0]
-                        
-                        new_app_data = {
-                            "id": new_app_id,
-                            "user_id": user_id,
-                            "name": filename.rsplit('.', 1)[0],
-                            "original_filename": filename,
-                            "file_size": file_size,
-                            "file_hash": file_hash,
-                            "storage_path": storage_path,
-                            "platform": existing_data.get('platform', platform),
-                            "status": "completed",  # Already processed
-                            "component_count": existing_data.get('component_count', 0),
-                            "sbom_data": existing_data.get('sbom_data'),
-                            "spdx_data": existing_data.get('spdx_data'),
-                            "sbom_format": existing_data.get('sbom_format', 'cyclonedx'),
-                            "analyzed_at": existing_data.get('analyzed_at'),
-                            "created_at": datetime.utcnow().isoformat(),
-                            "error_message": None
-                        }
-                        
-                        # Insert the new application record with copied SBOM data
-                        self.client.table("applications").insert(new_app_data).execute()
-                        
-                        # Copy component relationships if they exist
-                        await self._copy_component_relationships(existing_app['id'], new_app_id)
-                        
-                        print(f"✅ Created new application record for user {user_id} with existing SBOM data")
-                        return new_app_id, False  # Not a new SBOM generation
+                    # Insert the new application record with copied SBOM data
+                    self.client.table("applications").insert(new_app_data).execute()
+                    
+                    # Copy component relationships if they exist
+                    await self._copy_component_relationships(existing_app['id'], new_app_id)
+                    
+                    print(f"✅ Created new application record for user {user_id} with existing SBOM data")
+                    return new_app_id, False  # Not a new SBOM generation
                 
-                # If still processing, return the existing app ID
+                # If still processing, create reference record
                 elif existing_app['status'] == 'processing':
                     print(f"⏳ Existing application is still processing. Creating reference record.")
                     
@@ -154,16 +145,22 @@ class SBOMService:
     ) -> None:
         """
         Copy component relationships from one application to another.
-        This avoids re-analyzing the same file multiple times.
+        CRITICAL FIX: Uses service client to bypass RLS.
         """
         try:
-            # Get all component relationships from source
-            relationships = self.client.table("application_components")\
+            # CRITICAL: Use service client to bypass RLS
+            from app.core.database import get_supabase_client
+            service_client = get_supabase_client()
+            
+            # Get all component relationships from source (bypassing RLS)
+            relationships = service_client.table("application_components")\
                 .select("component_id")\
                 .eq("application_id", source_app_id)\
                 .execute()
             
             if relationships.data:
+                print(f"📋 Found {len(relationships.data)} component relationships to copy")
+                
                 # Create new relationships for target application
                 new_relationships = [
                     {
@@ -174,13 +171,19 @@ class SBOMService:
                 ]
                 
                 if new_relationships:
-                    self.client.table("application_components")\
+                    # Insert using service client (bypassing RLS)
+                    service_client.table("application_components")\
                         .insert(new_relationships)\
                         .execute()
                     
                     print(f"✅ Copied {len(new_relationships)} component relationships")
+            else:
+                print(f"⚠️  No component relationships found for source app {source_app_id}")
+                
         except Exception as e:
             print(f"⚠️  Warning: Could not copy component relationships: {str(e)}")
+            import traceback
+            print(f"⚠️  Traceback: {traceback.format_exc()}")
             # Don't fail the entire operation if this fails
     
     async def update_application_sbom(
