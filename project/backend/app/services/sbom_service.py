@@ -44,6 +44,11 @@ class SBOMService:
                 print(f"   Status: {existing_app['status']}")
                 print(f"   Original user: {existing_app['user_id']}")
                 print(f"   Current user: {user_id}")
+
+                # CHECK: If same user already has this file, throw error (Case 3)
+                if existing_app['user_id'] == user_id:
+                    print(f"❌ Same user trying to re-upload same file")
+                    raise Exception(f"You have already uploaded this file: {existing_app['original_filename']}")
                 
                 # If the file is already completed, we can return it immediately
                 if existing_app['status'] == 'completed':

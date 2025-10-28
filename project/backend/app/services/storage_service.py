@@ -42,43 +42,30 @@ class StorageService:
     ) -> dict:
         """
         Upload file to Supabase Storage with extended timeout.
-        
-        Args:
-            file_content: File content as bytes
-            filename: Original filename
-            user_id: User ID for organizing files
-            
-        Returns:
-            Dict with file path and metadata
         """
         try:
             print(f"  Storage: Calculating file hash...")
-            # Calculate file hash for deduplication
             file_hash = self.calculate_file_hash(file_content)
             
             # Organize files by user: uploads/{user_id}/{file_hash}_{filename}
             file_path = f"{user_id}/{file_hash}_{filename}"
             
             print(f"  Storage: Uploading {len(file_content)/(1024*1024):.2f}MB to {file_path}...")
-            print(f"  Storage: This may take a few minutes for large files...")
             
-            # Try to upload, if duplicate exists, use upsert instead
+            # Just catch duplicate and ignore - file already in storage is fine
             try:
                 response = self.client.storage.from_(self.bucket).upload(
                     path=file_path,
                     file=file_content,
-                    file_options={"content-type": "application/octet-stream", "upsert": "true"}
-                )
-            except Exception as upload_error:
-                print(f"  Storage: File may exist, trying upsert...")
-                # File exists, so just update it
-                response = self.client.storage.from_(self.bucket).update(
-                    path=file_path,
-                    file=file_content,
                     file_options={"content-type": "application/octet-stream"}
                 )
-            
-            print(f"  Storage: Upload complete!")
+                print(f"  Storage: Upload complete!")
+            except Exception as e:
+                if "Duplicate" in str(e) or "already exists" in str(e):
+                    print(f"  Storage: File already exists in storage, reusing...")
+                    # File exists in storage - that's OK, we'll check user ownership in database
+                else:
+                    raise  # Re-raise if it's not a duplicate error
             
             return {
                 "file_path": file_path,
@@ -91,19 +78,14 @@ class StorageService:
             error_msg = str(e)
             print(f"  Storage: Upload failed - {error_msg}")
             
-            # Provide more helpful error messages
+            # Provide helpful error messages
             if "timeout" in error_msg.lower():
                 raise Exception(
-                    f"File upload timed out. This can happen with large files on slow connections. "
-                    f"File size: {len(file_content)/(1024*1024):.1f}MB. "
-                    f"Consider using a faster internet connection or splitting the file."
+                    f"File upload timed out. File size: {len(file_content)/(1024*1024):.1f}MB. "
+                    f"Consider using a faster connection."
                 )
-            elif "too large" in error_msg.lower() or "size" in error_msg.lower():
-                raise Exception(
-                    f"File too large for storage. "
-                    f"Supabase free tier limit is 50MB per file. "
-                    f"Your file: {len(file_content)/(1024*1024):.1f}MB"
-                )
+            elif "size" in error_msg.lower():
+                raise Exception(f"File too large: {len(file_content)/(1024*1024):.1f}MB")
             else:
                 raise Exception(f"File upload failed: {error_msg}")
     
