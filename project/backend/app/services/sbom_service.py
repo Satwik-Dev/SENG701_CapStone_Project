@@ -12,14 +12,25 @@ from datetime import datetime
 class SBOMService:
     """Service for managing SBOMs with complete user data isolation."""
     
-    def __init__(self, supabase_client: Client):
+    def __init__(self, supabase_client: Client = None):
         """
         Initialize SBOM service.
         
         Args:
-            supabase_client: Supabase client instance
+            supabase_client: Supabase client instance (IGNORED - always use service client)
         """
-        self.client = supabase_client
+        self.client = None
+    
+    def _get_service_client(self) -> Client:
+        """
+        Get a fresh service client with SERVICE_ROLE_KEY.
+        This ensures we bypass RLS policies.
+        
+        Returns:
+            Client: Fresh Supabase client with service role
+        """
+        from app.core.database import get_supabase_client
+        return get_supabase_client()
     
     async def store_application(
         self,
@@ -57,7 +68,7 @@ class SBOMService:
             
             # Use service client to bypass RLS for read operations
             from app.core.database import get_supabase_client
-            service_client = get_supabase_client()
+            service_client = self._get_service_client()
             
             # Query for this specific user + file_hash combination ONLY
             existing_response = service_client.table("applications")\
@@ -154,7 +165,7 @@ class SBOMService:
             
             # Use service client to bypass RLS
             from app.core.database import get_supabase_client
-            service_client = get_supabase_client()
+            service_client = self._get_service_client()
             
             service_client.table("applications")\
                 .update(update_data)\
@@ -166,7 +177,7 @@ class SBOMService:
         except Exception as e:
             # Update status to failed
             from app.core.database import get_supabase_client
-            service_client = get_supabase_client()
+            service_client = self._get_service_client()
             
             service_client.table("applications").update({
                 "status": "failed",
@@ -204,7 +215,7 @@ class SBOMService:
         
         # Use service client for all database operations
         from app.core.database import get_supabase_client
-        service_client = get_supabase_client()
+        service_client = self._get_service_client()
         
         for idx, component in enumerate(components, 1):
             try:
@@ -230,6 +241,7 @@ class SBOMService:
                     .execute()
                 
                 # Insert component if it doesn't exist for this user
+                component_insert_failed = False
                 if not existing_comp.data:
                     component_data = {
                         "id": component_id,
@@ -250,10 +262,32 @@ class SBOMService:
                     
                     try:
                         service_client.table("components").insert(component_data).execute()
+                        print(f"  [{idx}/{len(components)}] ✅ Component inserted: {name}@{version}")
                     except Exception as comp_err:
-                        # Component might have been inserted by another process
-                        if 'duplicate' not in str(comp_err).lower() and 'unique' not in str(comp_err).lower():
-                            print(f"  [{idx}/{len(components)}] ⚠️  Component insert error: {str(comp_err)}")
+                        error_msg = str(comp_err).lower()
+                        # Duplicate is OK - component was inserted by another process
+                        if 'duplicate' in error_msg or 'unique' in error_msg:
+                            print(f"  [{idx}/{len(components)}] ♻️  Component already exists (duplicate): {name}@{version}")
+                        else:
+                            # Real error - log it and skip this component
+                            print(f"  [{idx}/{len(components)}] ❌ Component insert FAILED: {name}@{version}")
+                            print(f"       Error: {str(comp_err)}")
+                            component_insert_failed = True
+                            failed_count += 1
+                            continue  # Skip to next component - don't try to create relationship
+                
+                # IMPORTANT: Only create relationship if component exists
+                # Verify component exists before creating relationship
+                verify_comp = service_client.table("components")\
+                    .select("id")\
+                    .eq("id", component_id)\
+                    .eq("user_id", user_id)\
+                    .execute()
+                
+                if not verify_comp.data:
+                    print(f"  [{idx}/{len(components)}] ⚠️  Component doesn't exist, skipping relationship: {name}@{version}")
+                    failed_count += 1
+                    continue
                 
                 # Check if relationship already exists
                 existing_rel = service_client.table("application_components")\
@@ -323,7 +357,7 @@ class SBOMService:
         
         try:
             from app.core.database import get_supabase_client
-            service_client = get_supabase_client()
+            service_client = self._get_service_client()
             
             # Query with user_id filter to enforce isolation
             response = service_client.table("applications")\
@@ -356,7 +390,7 @@ class SBOMService:
         
         try:
             from app.core.database import get_supabase_client
-            service_client = get_supabase_client()
+            service_client = self._get_service_client()
             
             # First verify the application belongs to this user
             app = await self.get_application(user_id, app_id)
@@ -410,7 +444,7 @@ class SBOMService:
         
         try:
             from app.core.database import get_supabase_client
-            service_client = get_supabase_client()
+            service_client = self._get_service_client()
             
             # Calculate offset
             offset = (page - 1) * limit
