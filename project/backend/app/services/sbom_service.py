@@ -1,3 +1,8 @@
+"""
+SBOM Service - Complete User Data Isolation Version
+Handles SBOM storage, component management with per-user isolation.
+"""
+
 from supabase import Client
 from typing import Dict, Any, List, Optional, Tuple
 import uuid
@@ -5,8 +10,15 @@ from datetime import datetime
 
 
 class SBOMService:
+    """Service for managing SBOMs with complete user data isolation."""
     
     def __init__(self, supabase_client: Client):
+        """
+        Initialize SBOM service.
+        
+        Args:
+            supabase_client: Supabase client instance
+        """
         self.client = supabase_client
     
     async def store_application(
@@ -19,106 +31,61 @@ class SBOMService:
         platform: str = "unknown"
     ) -> Tuple[str, bool]:
         """
-        Store application record or return existing one if file hash matches.
+        Store application record with complete user isolation.
+        Each user's uploads are completely independent - no cross-user deduplication.
+        
+        Args:
+            user_id: User ID who uploaded the file
+            filename: Original filename
+            file_size: File size in bytes
+            file_hash: SHA-256 hash of the file
+            storage_path: Path in storage bucket
+            platform: Detected platform (android, ios, windows, etc.)
         
         Returns:
             tuple: (application_id, is_new_record)
-                - application_id: The ID of the application (new or existing)
-                - is_new_record: True if a new record was created, False if existing was found
+                - application_id: The ID of the application
+                - is_new_record: True if a new record was created, False if duplicate for this user
+        
+        Raises:
+            Exception: If user already uploaded this file or storage fails
         """
         
         try:
-            # First, check if this file hash already exists (check ALL users)
-            print(f"🔍 Checking for existing application with hash: {file_hash[:16]}...")
+            # Check if THIS USER has already uploaded this exact file
+            print(f"🔍 Checking if user {user_id[:8]}... already uploaded: {file_hash[:16]}...")
             
-            # Use service client to bypass RLS and check ALL users
+            # Use service client to bypass RLS for read operations
             from app.core.database import get_supabase_client
-            service_client = get_supabase_client()  # Already uses SERVICE_KEY
+            service_client = get_supabase_client()
             
+            # Query for this specific user + file_hash combination ONLY
             existing_response = service_client.table("applications")\
                 .select("*")\
+                .eq("user_id", user_id)\
                 .eq("file_hash", file_hash)\
                 .limit(1)\
                 .execute()
             
+            # If THIS user already uploaded this file, reject it
             if existing_response.data and len(existing_response.data) > 0:
                 existing_app = existing_response.data[0]
-                print(f"✅ Found existing application: {existing_app['id']}")
+                print(f"❌ User already uploaded this file: {existing_app['original_filename']}")
+                print(f"   Existing application ID: {existing_app['id']}")
                 print(f"   Status: {existing_app['status']}")
-                print(f"   Original user: {existing_app['user_id']}")
-                print(f"   Current user: {user_id}")
-                
-                # Case 3: Same user trying to re-upload - REJECT
-                if existing_app['user_id'] == user_id:
-                    print(f"❌ Same user attempting re-upload")
-                    raise Exception(f"You have already uploaded this file: {existing_app['original_filename']}")
-                
-                # If the file is already completed, we can return it immediately
-                if existing_app['status'] == 'completed':
-                    print(f"✅ Existing application is completed. Reusing SBOM data.")
-                    
-                    # Create a new application record for this user that references the same SBOM
-                    new_app_id = str(uuid.uuid4())
-                    
-                    new_app_data = {
-                        "id": new_app_id,
-                        "user_id": user_id,
-                        "name": filename.rsplit('.', 1)[0],
-                        "original_filename": filename,
-                        "file_size": file_size,
-                        "file_hash": file_hash,
-                        "storage_path": storage_path,
-                        "platform": existing_app.get('platform', platform),
-                        "status": "completed",  # Already processed
-                        "component_count": existing_app.get('component_count', 0),
-                        "sbom_data": existing_app.get('sbom_data'),
-                        "spdx_data": existing_app.get('spdx_data'),
-                        "sbom_format": existing_app.get('sbom_format', 'cyclonedx'),
-                        "analyzed_at": existing_app.get('analyzed_at'),
-                        "created_at": datetime.utcnow().isoformat(),
-                        "error_message": None
-                    }
-                    
-                    # Insert the new application record with copied SBOM data
-                    self.client.table("applications").insert(new_app_data).execute()
-                    
-                    # Copy component relationships if they exist
-                    await self._copy_component_relationships(user_id, existing_app['id'], new_app_id)
-                    
-                    print(f"✅ Created new application record for user {user_id} with existing SBOM data")
-                    return new_app_id, False  # Not a new SBOM generation
-                
-                # If still processing, create reference record
-                elif existing_app['status'] == 'processing':
-                    print(f"⏳ Existing application is still processing. Creating reference record.")
-                    
-                    new_app_id = str(uuid.uuid4())
-                    new_app_data = {
-                        "id": new_app_id,
-                        "user_id": user_id,
-                        "name": filename.rsplit('.', 1)[0],
-                        "original_filename": filename,
-                        "file_size": file_size,
-                        "file_hash": file_hash,
-                        "storage_path": storage_path,
-                        "platform": platform,
-                        "status": "processing",
-                        "component_count": 0,
-                        "created_at": datetime.utcnow().isoformat(),
-                        "error_message": f"Waiting for existing processing job: {existing_app['id']}"
-                    }
-                    
-                    self.client.table("applications").insert(new_app_data).execute()
-                    print(f"✅ Created reference record while original processes")
-                    return new_app_id, False
+                raise Exception(
+                    f"You have already uploaded this file: {existing_app['original_filename']}. "
+                    f"Application ID: {existing_app['id']}"
+                )
             
-            # No existing application found, create a new one
-            print(f"🆕 No existing application found. Creating new record.")
+            # No duplicate found for this user - create new application record
+            print(f"✅ New file for user. Creating application record.")
             
+            app_id = str(uuid.uuid4())
             app_data = {
-                "id": str(uuid.uuid4()),
+                "id": app_id,
                 "user_id": user_id,
-                "name": filename.rsplit('.', 1)[0],
+                "name": filename.rsplit('.', 1)[0] if '.' in filename else filename,
                 "original_filename": filename,
                 "file_size": file_size,
                 "file_hash": file_hash,
@@ -129,63 +96,20 @@ class SBOMService:
                 "created_at": datetime.utcnow().isoformat()
             }
             
-            # Use service client to insert (bypasses RLS for creation)
-            from app.core.database import get_supabase_client
-            service_client = get_supabase_client()
+            # Insert using service_client to bypass RLS
             response = service_client.table("applications").insert(app_data).execute()
-            print(f"✅ New application created: {app_data['id']}")
+            print(f"✅ New application created: {app_id}")
             
-            return app_data["id"], True  # New record created
+            return app_id, True  # Always a new record with this approach
             
         except Exception as e:
-            print(f"❌ Error in store_application: {str(e)}")
-            raise Exception(f"Failed to store application: {str(e)}")
-    
-    async def _copy_component_relationships(
-        self,
-        user_id: str,
-        source_app_id: str,
-        target_app_id: str
-    ) -> None:
-        """
-        Copy component relationships from one application to another.
-        """
-        try:
-            # Get all component relationships from source
-            # Since application_components has RLS DISABLED, this works fine
-            relationships = self.client.table("application_components")\
-                .select("component_id")\
-                .eq("application_id", source_app_id)\
-                .eq("user_id", user_id)\
-                .execute()
-            
-            if relationships.data:
-                print(f"📋 Found {len(relationships.data)} component relationships to copy")
-                
-                # Create new relationships for target application
-                new_relationships = [
-                    {
-                        "application_id": target_app_id,
-                        "component_id": rel["component_id"],
-                        "user_id": user_id
-                    }
-                    for rel in relationships.data
-                ]
-                
-                if new_relationships:
-                    self.client.table("application_components")\
-                        .insert(new_relationships)\
-                        .execute()
-                    
-                    print(f"✅ Copied {len(new_relationships)} component relationships")
-            else:
-                print(f"⚠️  No component relationships found for source app {source_app_id}")
-                
-        except Exception as e:
-            print(f"⚠️  Warning: Could not copy component relationships: {str(e)}")
-            import traceback
-            print(f"⚠️  Traceback: {traceback.format_exc()}")
-            # Don't fail the entire operation if this fails
+            error_msg = str(e)
+            # Re-raise our custom duplicate message as-is
+            if "already uploaded this file" in error_msg:
+                raise
+            # For other errors, wrap them
+            print(f"❌ Error in store_application: {error_msg}")
+            raise Exception(f"Failed to store application: {error_msg}")
     
     async def update_application_sbom(
         self,
@@ -197,16 +121,30 @@ class SBOMService:
         platform: str = "unknown"
     ) -> None:
         """
-        Store BOTH CycloneDX and SPDX formats.
+        Store BOTH CycloneDX and SPDX formats in the application record.
+        Updates the application with complete SBOM data and stores all components.
+        
+        Args:
+            user_id: User ID who owns the application
+            app_id: Application ID to update
+            cyclonedx_data: CycloneDX format SBOM data
+            spdx_data: SPDX format SBOM data
+            components: List of parsed components
+            platform: Detected platform
+        
+        Raises:
+            Exception: If update fails
         """
         
         try:
+            # Store components and get the count
             component_count = await self._store_components(user_id, app_id, components)
             
+            # Prepare update data with both SBOM formats
             update_data = {
-                "sbom_data": cyclonedx_data,  # Primary format
-                "spdx_data": spdx_data,        # Secondary format
-                "sbom_format": "cyclonedx",
+                "sbom_data": cyclonedx_data,  # Primary format (CycloneDX)
+                "spdx_data": spdx_data,        # Secondary format (SPDX)
+                "sbom_format": "cyclonedx",    # Indicate primary format
                 "component_count": component_count,
                 "platform": platform,
                 "status": "completed",
@@ -214,12 +152,23 @@ class SBOMService:
                 "error_message": None  # Clear any previous errors
             }
             
-            self.client.table("applications").update(update_data).eq("id", app_id).execute()
+            # Use service client to bypass RLS
+            from app.core.database import get_supabase_client
+            service_client = get_supabase_client()
+            
+            service_client.table("applications")\
+                .update(update_data)\
+                .eq("id", app_id)\
+                .execute()
             
             print(f"✅ Stored {component_count} components for application {app_id}")
             
         except Exception as e:
-            self.client.table("applications").update({
+            # Update status to failed
+            from app.core.database import get_supabase_client
+            service_client = get_supabase_client()
+            
+            service_client.table("applications").update({
                 "status": "failed",
                 "error_message": str(e)
             }).eq("id", app_id).execute()
@@ -234,7 +183,17 @@ class SBOMService:
     ) -> int:
         """
         Store components with proper error handling and validation.
+        Components are stored per-user for complete isolation.
+        
+        Args:
+            user_id: User ID who owns the application
+            app_id: Application ID
+            components: List of component dictionaries
+        
+        Returns:
+            int: Number of components successfully stored
         """
+        
         if not components:
             print("⚠️  No components provided to store")
             return 0
@@ -242,6 +201,10 @@ class SBOMService:
         print(f"📦 Starting to store {len(components)} components for app {app_id}")
         stored_count = 0
         failed_count = 0
+        
+        # Use service client for all database operations
+        from app.core.database import get_supabase_client
+        service_client = get_supabase_client()
         
         for idx, component in enumerate(components, 1):
             try:
@@ -255,16 +218,18 @@ class SBOMService:
                     failed_count += 1
                     continue
                 
-                # Generate component ID
-                component_id = f"{name}@{version}"
+                # Generate component ID (unique per user)
+                # Format: user_id:name@version
+                component_id = f"{user_id}:{name}@{version}"
                 
-                # Check if component exists
-                existing_comp = self.client.table("components")\
+                # Check if component exists for this user
+                existing_comp = service_client.table("components")\
                     .select("id")\
                     .eq("id", component_id)\
+                    .eq("user_id", user_id)\
                     .execute()
                 
-                # Insert component if it doesn't exist
+                # Insert component if it doesn't exist for this user
                 if not existing_comp.data:
                     component_data = {
                         "id": component_id,
@@ -273,47 +238,64 @@ class SBOMService:
                         "type": component.get("type", "library"),
                         "license": component.get("license"),
                         "purl": component.get("purl"),
-                        "user_id": user_id
+                        "cpe": component.get("cpe"),
+                        "description": component.get("description"),
+                        "supplier": component.get("supplier"),
+                        "author": component.get("author"),
+                        "homepage": component.get("homepage"),
+                        "repository_url": component.get("repository_url"),
+                        "user_id": user_id,
+                        "created_at": datetime.utcnow().isoformat()
                     }
                     
                     try:
-                        self.client.table("components").insert(component_data).execute()
+                        service_client.table("components").insert(component_data).execute()
                     except Exception as comp_err:
                         # Component might have been inserted by another process
-                        if 'duplicate' not in str(comp_err).lower():
+                        if 'duplicate' not in str(comp_err).lower() and 'unique' not in str(comp_err).lower():
                             print(f"  [{idx}/{len(components)}] ⚠️  Component insert error: {str(comp_err)}")
                 
                 # Check if relationship already exists
-                existing_rel = self.client.table("application_components")\
+                existing_rel = service_client.table("application_components")\
                     .select("id")\
                     .eq("application_id", app_id)\
                     .eq("component_id", component_id)\
+                    .eq("user_id", user_id)\
                     .execute()
                 
                 # Only insert if relationship doesn't exist
                 if not existing_rel.data:
+                    relationship_id = str(uuid.uuid4())
                     relationship = {
+                        "id": relationship_id,
                         "application_id": app_id,
                         "component_id": component_id,
-                        "user_id": user_id
+                        "user_id": user_id,
+                        "relationship_type": component.get("relationship_type", "direct"),
+                        "depth": component.get("depth", 0),
+                        "confidence": component.get("confidence", 1.0),
+                        "detected_by": component.get("detected_by", "syft"),
+                        "created_at": datetime.utcnow().isoformat()
                     }
                     
-                    result = self.client.table("application_components")\
+                    result = service_client.table("application_components")\
                         .insert(relationship)\
                         .execute()
                     
                     if result.data:
                         stored_count += 1
+                        # Show progress every 50 components
                         if idx % 50 == 0:
                             print(f"  Progress: {idx}/{len(components)} processed, {stored_count} stored")
                 else:
-                    # Already exists, count as stored
+                    # Relationship already exists, count as stored
                     stored_count += 1
                     
             except Exception as e:
                 failed_count += 1
                 error_msg = str(e)
-                print(f"  [{idx}/{len(components)}] ❌ Error: {component.get('name', 'unknown')}: {error_msg}")
+                component_name = component.get('name', 'unknown')
+                print(f"  [{idx}/{len(components)}] ❌ Error: {component_name}: {error_msg}")
                 continue
         
         # Final summary
@@ -325,3 +307,145 @@ class SBOMService:
             print(f"  ⚠️  WARNING: No components were stored! Check errors above.")
         
         return stored_count
+    
+    async def get_application(self, user_id: str, app_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get application details for a specific user.
+        Enforces user isolation - users can only see their own applications.
+        
+        Args:
+            user_id: User ID requesting the application
+            app_id: Application ID to retrieve
+        
+        Returns:
+            Application data or None if not found/not authorized
+        """
+        
+        try:
+            from app.core.database import get_supabase_client
+            service_client = get_supabase_client()
+            
+            # Query with user_id filter to enforce isolation
+            response = service_client.table("applications")\
+                .select("*")\
+                .eq("id", app_id)\
+                .eq("user_id", user_id)\
+                .execute()
+            
+            if response.data and len(response.data) > 0:
+                return response.data[0]
+            
+            return None
+            
+        except Exception as e:
+            print(f"❌ Error getting application: {str(e)}")
+            return None
+    
+    async def delete_application(self, user_id: str, app_id: str) -> bool:
+        """
+        Delete application and all associated data.
+        Enforces user isolation - users can only delete their own applications.
+        
+        Args:
+            user_id: User ID requesting the deletion
+            app_id: Application ID to delete
+        
+        Returns:
+            bool: True if deleted successfully, False otherwise
+        """
+        
+        try:
+            from app.core.database import get_supabase_client
+            service_client = get_supabase_client()
+            
+            # First verify the application belongs to this user
+            app = await self.get_application(user_id, app_id)
+            if not app:
+                print(f"❌ Application {app_id} not found or not authorized for user {user_id}")
+                return False
+            
+            # Delete application_components relationships
+            service_client.table("application_components")\
+                .delete()\
+                .eq("application_id", app_id)\
+                .eq("user_id", user_id)\
+                .execute()
+            
+            # Delete the application record
+            service_client.table("applications")\
+                .delete()\
+                .eq("id", app_id)\
+                .eq("user_id", user_id)\
+                .execute()
+            
+            print(f"✅ Deleted application {app_id} for user {user_id}")
+            return True
+            
+        except Exception as e:
+            print(f"❌ Error deleting application: {str(e)}")
+            return False
+    
+    async def list_user_applications(
+        self,
+        user_id: str,
+        page: int = 1,
+        limit: int = 10,
+        platform: Optional[str] = None,
+        status: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        List applications for a specific user with pagination and filters.
+        Complete user isolation - only shows user's own applications.
+        
+        Args:
+            user_id: User ID requesting the list
+            page: Page number (1-indexed)
+            limit: Items per page
+            platform: Optional platform filter
+            status: Optional status filter
+        
+        Returns:
+            Dict with applications list and pagination metadata
+        """
+        
+        try:
+            from app.core.database import get_supabase_client
+            service_client = get_supabase_client()
+            
+            # Calculate offset
+            offset = (page - 1) * limit
+            
+            # Build query with user filter
+            query = service_client.table("applications")\
+                .select("*", count="exact")\
+                .eq("user_id", user_id)
+            
+            # Apply filters if provided
+            if platform:
+                query = query.eq("platform", platform)
+            if status:
+                query = query.eq("status", status)
+            
+            # Apply pagination and ordering
+            query = query.order("created_at", desc=True)\
+                .range(offset, offset + limit - 1)
+            
+            response = query.execute()
+            
+            return {
+                "applications": response.data,
+                "total": response.count,
+                "page": page,
+                "limit": limit,
+                "total_pages": (response.count + limit - 1) // limit if response.count else 0
+            }
+            
+        except Exception as e:
+            print(f"❌ Error listing applications: {str(e)}")
+            return {
+                "applications": [],
+                "total": 0,
+                "page": page,
+                "limit": limit,
+                "total_pages": 0
+            }
