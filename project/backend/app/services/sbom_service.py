@@ -233,54 +233,95 @@ class SBOMService:
         components: List[Dict]
     ) -> int:
         """
-        Store components with proper duplicate handling.
+        Store components with proper error handling and validation.
         """
-        
         if not components:
+            print("⚠️  No components provided to store")
             return 0
         
+        print(f"📦 Starting to store {len(components)} components for app {app_id}")
         stored_count = 0
+        failed_count = 0
         
-        for component in components:
+        for idx, component in enumerate(components, 1):
             try:
-                # Check if component already exists
-                component_id = f"{component['name']}@{component['version']}"
+                # Extract and validate component data
+                name = str(component.get('name', '')).strip()
+                version = str(component.get('version', 'unknown')).strip()
                 
-                existing = self.client.table("components")\
+                # Skip invalid components
+                if not name or name.lower() in ['', 'none', 'unknown', 'null']:
+                    print(f"  [{idx}/{len(components)}] ⏭️  Skipped invalid component")
+                    failed_count += 1
+                    continue
+                
+                # Generate component ID
+                component_id = f"{name}@{version}"
+                
+                # Check if component exists
+                existing_comp = self.client.table("components")\
                     .select("id")\
                     .eq("id", component_id)\
                     .execute()
                 
                 # Insert component if it doesn't exist
-                if not existing.data:
+                if not existing_comp.data:
                     component_data = {
                         "id": component_id,
-                        "name": component["name"],
-                        "version": component["version"],
+                        "name": name,
+                        "version": version,
                         "type": component.get("type", "library"),
                         "license": component.get("license"),
                         "purl": component.get("purl"),
                         "user_id": user_id
                     }
                     
-                    self.client.table("components").insert(component_data).execute()
+                    try:
+                        self.client.table("components").insert(component_data).execute()
+                    except Exception as comp_err:
+                        # Component might have been inserted by another process
+                        if 'duplicate' not in str(comp_err).lower():
+                            print(f"  [{idx}/{len(components)}] ⚠️  Component insert error: {str(comp_err)}")
                 
-                # Create relationship between application and component
-                # Use upsert to handle duplicates gracefully
-                relationship = {
-                    "application_id": app_id,
-                    "component_id": component_id,
-                    "user_id": user_id
-                }
-                
-                self.client.table("application_components")\
-                    .upsert(relationship, on_conflict="application_id,component_id")\
+                # Check if relationship already exists
+                existing_rel = self.client.table("application_components")\
+                    .select("id")\
+                    .eq("application_id", app_id)\
+                    .eq("component_id", component_id)\
                     .execute()
                 
-                stored_count += 1
-                
+                # Only insert if relationship doesn't exist
+                if not existing_rel.data:
+                    relationship = {
+                        "application_id": app_id,
+                        "component_id": component_id,
+                        "user_id": user_id
+                    }
+                    
+                    result = self.client.table("application_components")\
+                        .insert(relationship)\
+                        .execute()
+                    
+                    if result.data:
+                        stored_count += 1
+                        if idx % 50 == 0:
+                            print(f"  Progress: {idx}/{len(components)} processed, {stored_count} stored")
+                else:
+                    # Already exists, count as stored
+                    stored_count += 1
+                    
             except Exception as e:
-                print(f"⚠️  Warning: Failed to store component {component.get('name')}: {str(e)}")
+                failed_count += 1
+                error_msg = str(e)
+                print(f"  [{idx}/{len(components)}] ❌ Error: {component.get('name', 'unknown')}: {error_msg}")
                 continue
+        
+        # Final summary
+        print(f"\n📊 Storage Summary for app {app_id}:")
+        print(f"  ✅ Successfully stored: {stored_count}/{len(components)}")
+        print(f"  ❌ Failed/Skipped: {failed_count}/{len(components)}")
+        
+        if stored_count == 0 and len(components) > 0:
+            print(f"  ⚠️  WARNING: No components were stored! Check errors above.")
         
         return stored_count
