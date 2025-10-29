@@ -1,8 +1,3 @@
-"""
-Main FastAPI application.
-SBOM Manager API - Software Bill of Materials Management System
-"""
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
@@ -56,13 +51,13 @@ async def health_check():
 @app.on_event("startup")
 async def startup_event():
     """Run on application startup."""
-    print(f"🚀 {settings.PROJECT_NAME} starting...")
-    print(f"📚 Documentation available at: /docs")
-    print(f"🌍 Environment: {settings.ENVIRONMENT}")
+    print(f"{settings.PROJECT_NAME} starting...")
+    print(f"Documentation available at: /docs")
+    print(f"Environment: {settings.ENVIRONMENT}")
 
 
 # Shutdown event
 @app.on_event("shutdown")
 async def shutdown_event():
     """Run on application shutdown."""
-    print(f"👋 {settings.PROJECT_NAME} shutting down...")
+    print(f"{settings.PROJECT_NAME} shutting down...")

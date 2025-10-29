@@ -18,15 +18,6 @@ security = HTTPBearer()
 def get_auth_service(
     supabase_client: Client = Depends(get_supabase_client)
 ) -> AuthService:
-    """
-    Dependency to get auth service instance.
-    
-    Args:
-        supabase_client: Supabase client from dependency
-        
-    Returns:
-        AuthService instance
-    """
     return AuthService(supabase_client)
 
 
@@ -35,15 +26,6 @@ async def get_current_user_id(
 ) -> str:
     """
     Dependency to get current user ID from JWT token.
-    
-    Args:
-        credentials: HTTP Bearer token
-        
-    Returns:
-        User ID from token
-        
-    Raises:
-        HTTPException: If token is invalid or expired
     """
     token = credentials.credentials
     
@@ -74,13 +56,6 @@ async def get_optional_current_user_id(
 ) -> Optional[str]:
     """
     Optional dependency to get current user ID.
-    Returns None if no token provided.
-    
-    Args:
-        credentials: Optional HTTP Bearer token
-        
-    Returns:
-        User ID or None
     """
     if credentials is None:
         return None

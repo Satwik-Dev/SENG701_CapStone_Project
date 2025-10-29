@@ -1,8 +1,3 @@
-"""
-Storage service for file uploads to Supabase Storage.
-Fixed with increased timeout for large files.
-"""
-
 from supabase import Client
 from app.core.config import settings
 import hashlib
@@ -11,19 +6,17 @@ import httpx
 
 
 class StorageService:
-    """Service for handling file storage operations."""
     
     def __init__(self, supabase_client: Client):
         self.client = supabase_client
         self.bucket = settings.STORAGE_BUCKET
         
-        # CRITICAL FIX: Increase timeout for large file uploads
         # Create a custom httpx client with longer timeout
         timeout = httpx.Timeout(
             timeout=300.0,  # 5 minutes total timeout
             connect=60.0,   # 1 minute to establish connection
             read=300.0,     # 5 minutes to read response
-            write=300.0     # 5 minutes to write (upload) - THIS IS KEY!
+            write=300.0     # 5 minutes to write (upload)
         )
         
         # Update the storage client's httpx client with new timeout
@@ -109,13 +102,6 @@ class StorageService:
     def get_signed_url(self, file_path: str, expires_in: int = 3600) -> str:
         """
         Get signed URL for temporary file access.
-        
-        Args:
-            file_path: Path to file in storage
-            expires_in: URL expiration time in seconds (default 1 hour)
-            
-        Returns:
-            Signed URL string
         """
         try:
             response = self.client.storage.from_(self.bucket).create_signed_url(

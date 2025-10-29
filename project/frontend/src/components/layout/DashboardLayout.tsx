@@ -9,7 +9,10 @@ import {
   User, 
   LogOut,
   Menu,
-  X
+  X,
+  Info,
+  Mail,
+  GitCompare
 } from 'lucide-react';
 
 interface DashboardLayoutProps {
@@ -27,6 +30,9 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
     { name: 'Upload', href: '/upload', icon: Upload },
     { name: 'Applications', href: '/applications', icon: FolderOpen },
     { name: 'Statistics', href: '/statistics', icon: BarChart3 },
+    { name: 'Compare', href: '/compare', icon: GitCompare },
+    { name: 'About', href: '/about', icon: Info },
+    { name: 'Contact Us', href: '/contact', icon: Mail },
   ];
 
   const handleLogout = () => {

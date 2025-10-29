@@ -1,8 +1,3 @@
-"""
-Authentication service.
-Handles user registration, login, and token management using Supabase Auth.
-"""
-
 from typing import Optional, Dict, Any
 from supabase import Client
 from app.core.security import create_access_token, create_refresh_token, verify_token
@@ -17,24 +12,12 @@ class AuthService:
     def __init__(self, supabase_client: Client):
         """
         Initialize auth service.
-        
-        Args:
-            supabase_client: Supabase client instance
         """
         self.client = supabase_client
     
     async def register(self, user_data: UserCreate) -> Dict[str, Any]:
         """
         Register a new user.
-        
-        Args:
-            user_data: User registration data
-            
-        Returns:
-            Dict with success message and user info
-            
-        Raises:
-            Exception: If registration fails
         """
         try:
             # Register user with Supabase Auth
@@ -70,15 +53,6 @@ class AuthService:
     async def login(self, credentials: UserLogin) -> Token:
         """
         Login user and return tokens.
-        
-        Args:
-            credentials: User login credentials
-            
-        Returns:
-            Token object with access token, refresh token, and user info
-            
-        Raises:
-            Exception: If login fails
         """
         try:
             # Sign in with Supabase Auth
@@ -126,15 +100,6 @@ class AuthService:
     async def refresh_token(self, refresh_token: str) -> Token:
         """
         Refresh access token using refresh token.
-        
-        Args:
-            refresh_token: Refresh token
-            
-        Returns:
-            New token pair
-            
-        Raises:
-            Exception: If token refresh fails
         """
         try:
             # Verify refresh token
@@ -187,15 +152,6 @@ class AuthService:
     async def get_current_user(self, user_id: str) -> UserResponse:
         """
         Get current user from user ID.
-        
-        Args:
-            user_id: User ID from JWT token
-            
-        Returns:
-            User information
-            
-        Raises:
-            Exception: If user not found
         """
         try:
             # Use Admin API to get user by ID
@@ -221,12 +177,6 @@ class AuthService:
     async def request_password_reset(self, email: str) -> Dict[str, str]:
         """
         Request password reset email.
-        
-        Args:
-            email: User email
-            
-        Returns:
-            Success message
         """
         try:
             self.client.auth.reset_password_email(email)
@@ -244,21 +194,9 @@ class AuthService:
     async def reset_password(self, email: str, token: str, new_password: str) -> Dict[str, str]:
         """
         Reset user password using email and token from reset email.
-        
-        Args:
-            email: User's email address
-            token: Token from password reset email
-            new_password: New password to set
-            
-        Returns:
-            Success message
-            
-        Raises:
-            Exception: If password reset fails
         """
         try:
             # Use Supabase's verify OTP method with the token and email
-            # This is the correct way to handle Supabase's password reset tokens
             response = self.client.auth.verify_otp({
                 "email": email,
                 "token": token,

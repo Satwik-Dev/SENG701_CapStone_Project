@@ -30,7 +30,6 @@ class SyftService:
     ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
         """
         Generate SBOM in BOTH CycloneDX and SPDX formats.
-        Returns: (cyclonedx_data, spdx_data)
         """
         
         if not self.check_syft_installed():
@@ -51,7 +50,6 @@ class SyftService:
     def generate_sbom_sync(self, file_path: str) -> tuple:
         """
         Synchronous version for thread pool execution.
-        Returns: (cyclonedx_data, spdx_data)
         """
         import subprocess
         import tempfile
@@ -183,7 +181,6 @@ class SyftService:
     def detect_platform_from_file(self, filename: str) -> str:
         """
         Detect platform from filename extension.
-        This is more reliable than content analysis.
         """
         filename_lower = filename.lower()
         
@@ -208,7 +205,6 @@ class SyftService:
         return 'unknown'
     
     def detect_platform_from_sbom(self, sbom_data: Dict[str, Any]) -> str:
-        """Fallback: detect from SBOM content."""
         components = sbom_data.get("components", []) or sbom_data.get("packages", [])
         
         for comp in components:

@@ -1,7 +1,3 @@
-"""
-Pydantic models for user authentication and management.
-"""
-
 from pydantic import BaseModel, EmailStr, Field, validator
 from typing import Optional
 from datetime import datetime
@@ -22,11 +18,6 @@ class UserCreate(UserBase):
     def validate_password(cls, v):
         """
         Validate password strength.
-        Must contain at least:
-        - 8 characters
-        - 1 uppercase letter
-        - 1 lowercase letter
-        - 1 number
         """
         if len(v) < 8:
             raise ValueError('Password must be at least 8 characters long')

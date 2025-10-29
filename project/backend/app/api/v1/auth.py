@@ -1,7 +1,3 @@
-"""
-Authentication API endpoints.
-"""
-
 from fastapi import APIRouter, Depends, HTTPException, status
 from app.models.user import (
     UserCreate, 
@@ -26,13 +22,6 @@ async def register(
 ):
     """
     Register a new user.
-    
-    - **email**: Valid email address
-    - **password**: Strong password (min 8 chars, uppercase, lowercase, number)
-    - **full_name**: Optional full name
-    
-    Returns success message and user info.
-    Email verification link will be sent to the provided email.
     """
     try:
         result = await auth_service.register(user_data)
@@ -51,11 +40,6 @@ async def login(
 ):
     """
     Login with email and password.
-    
-    - **email**: User email
-    - **password**: User password
-    
-    Returns access token, refresh token, and user info.
     """
     try:
         token = await auth_service.login(credentials)
@@ -75,10 +59,6 @@ async def refresh_token(
 ):
     """
     Refresh access token using refresh token.
-    
-    - **refresh_token**: Valid refresh token
-    
-    Returns new access token and refresh token.
     """
     try:
         new_token = await auth_service.refresh_token(token_data.refresh_token)
@@ -98,10 +78,6 @@ async def get_current_user(
 ):
     """
     Get current user information.
-    
-    Requires valid access token in Authorization header.
-    
-    Returns current user details.
     """
     try:
         user = await auth_service.get_current_user(user_id)
@@ -120,10 +96,6 @@ async def forgot_password(
 ):
     """
     Request password reset email.
-    
-    - **email**: User email
-    
-    Sends password reset link to email if account exists.
     """
     result = await auth_service.request_password_reset(data.email)
     return result
@@ -135,12 +107,6 @@ async def reset_password(
 ):
     """
     Reset password with token and email.
-    
-    - **email**: User's email address
-    - **token**: Password reset token from email
-    - **new_password**: New password
-    
-    Resets the user's password.
     """
     result = await auth_service.reset_password(data.email, data.token, data.new_password)
     return result

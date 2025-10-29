@@ -1,8 +1,3 @@
-"""
-Configuration settings for the SBOM Manager backend.
-Loads environment variables from .env file.
-"""
-
 from pydantic_settings import BaseSettings
 from typing import Optional
 import os
@@ -59,9 +54,9 @@ settings = Settings()
 
 # Print loaded config (for debugging - remove in production)
 if settings.DEBUG:
-    print("✅ Configuration loaded successfully!")
-    print(f"📦 Project: {settings.PROJECT_NAME}")
-    print(f"🌍 Environment: {settings.ENVIRONMENT}")
-    print(f"🔗 Supabase URL: {settings.SUPABASE_URL}")
-    print(f"📁 Storage Bucket: {settings.STORAGE_BUCKET}")
-    print(f"📏 Max File Size: {settings.MAX_FILE_SIZE / (1024*1024):.0f}MB")
+    print("Configuration loaded successfully!")
+    print(f"Project: {settings.PROJECT_NAME}")
+    print(f"Environment: {settings.ENVIRONMENT}")
+    print(f"Supabase URL: {settings.SUPABASE_URL}")
+    print(f"Storage Bucket: {settings.STORAGE_BUCKET}")
+    print(f"Max File Size: {settings.MAX_FILE_SIZE / (1024*1024):.0f}MB")

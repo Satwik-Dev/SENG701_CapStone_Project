@@ -87,11 +87,11 @@ async def process_sbom_background(
         if temp_path and os.path.exists(temp_path):
             os.unlink(temp_path)
         
-        print(f"✅ Background processing completed for {app_id}")
+        print(f"Background processing completed for {app_id}")
         
     except Exception as e:
-        print(f"❌ Background processing failed: {str(e)}")
-        print(f"❌ Full traceback: {traceback.format_exc()}")
+        print(f"Background processing failed: {str(e)}")
+        print(f"Full traceback: {traceback.format_exc()}")
         
         # Update status to failed
         try:
@@ -100,7 +100,7 @@ async def process_sbom_background(
                 "error_message": str(e)
             }).eq("id", app_id).execute()
         except Exception as db_error:
-            print(f"❌ Failed to update DB: {str(db_error)}")
+            print(f"Failed to update DB: {str(db_error)}")
         
         # Clean up temp file
         if temp_path and os.path.exists(temp_path):
@@ -120,27 +120,17 @@ async def upload_file(
 ):
     """
     Upload file with streaming support for large files.
-    
-    Supports:
-    - Mobile: .apk (Android), .ipa (iOS)
-    - Desktop: .exe (Windows), .app (macOS), .deb/.rpm (Linux)
-    - Source Code: .zip, .tar, .tar.gz, .tgz
-    
-    Maximum file size: 50MB
-    
-    If the file has been uploaded before (based on hash), reuses existing SBOM data.
     """
-    
     temp_upload_path = None
     
     try:
         print(f"\n{'='*60}")
-        print(f"🔵 UPLOAD REQUEST RECEIVED")
+        print(f"UPLOAD REQUEST RECEIVED")
         print(f"{'='*60}")
         
         # Validate filename
         if not file.filename:
-            print("❌ ERROR: No filename provided")
+            print("ERROR: No filename provided")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Filename is required"
@@ -151,7 +141,7 @@ async def upload_file(
         print(f"User ID: {user_id}")
         
         # Stream file to disk to avoid memory issues with large files
-        print(f"📖 Streaming file to disk...")
+        print(f"Streaming file to disk...")
         try:
             with tempfile.NamedTemporaryFile(delete=False, suffix=f"_upload_{file.filename}") as temp_upload:
                 temp_upload_path = temp_upload.name
@@ -165,11 +155,11 @@ async def upload_file(
                     if file_size % (5 * 1024 * 1024) == 0:  # Log every 5MB
                         print(f"  Streamed {file_size / (1024*1024):.1f} MB...")
             
-            print(f"✅ File streamed successfully: {file_size} bytes ({file_size/(1024*1024):.2f} MB)")
+            print(f"File streamed successfully: {file_size} bytes ({file_size/(1024*1024):.2f} MB)")
             
         except Exception as read_error:
-            print(f"❌ ERROR streaming file: {str(read_error)}")
-            print(f"❌ Full traceback: {traceback.format_exc()}")
+            print(f"ERROR streaming file: {str(read_error)}")
+            print(f"Full traceback: {traceback.format_exc()}")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail=f"Failed to read file: {str(read_error)}"
@@ -177,7 +167,7 @@ async def upload_file(
         
         # Validate file size
         if file_size == 0:
-            print("❌ ERROR: File is empty")
+            print("ERROR: File is empty")
             if temp_upload_path and os.path.exists(temp_upload_path):
                 os.unlink(temp_upload_path)
             raise HTTPException(
@@ -186,7 +176,7 @@ async def upload_file(
             )
         
         if file_size > settings.MAX_FILE_SIZE:
-            print(f"❌ ERROR: File too large ({file_size} > {settings.MAX_FILE_SIZE})")
+            print(f"ERROR: File too large ({file_size} > {settings.MAX_FILE_SIZE})")
             if temp_upload_path and os.path.exists(temp_upload_path):
                 os.unlink(temp_upload_path)
             raise HTTPException(
@@ -195,32 +185,32 @@ async def upload_file(
             )
         
         # Read file content for storage upload
-        print(f"📂 Reading file for storage upload...")
+        print(f"Reading file for storage upload...")
         with open(temp_upload_path, 'rb') as f:
             file_content = f.read()
         
         # Detect platform from filename
-        print(f"🔍 Detecting platform...")
+        print(f"Detecting platform...")
         try:
             syft_service = SyftService()
             platform = syft_service.detect_platform_from_file(file.filename)
-            print(f"✅ Platform detected: {platform}")
+            print(f"Platform detected: {platform}")
         except Exception as platform_error:
-            print(f"⚠️  Platform detection failed: {str(platform_error)}")
+            print(f"Platform detection failed: {str(platform_error)}")
             platform = "unknown"
         
         # Upload to storage
-        print(f"☁️  Uploading to Supabase Storage...")
+        print(f"Uploading to Supabase Storage...")
         try:
             upload_result = await storage_service.upload_file(
                 file_content,
                 file.filename,
                 user_id
             )
-            print(f"✅ File uploaded: {upload_result['storage_path']}")
+            print(f"File uploaded: {upload_result['storage_path']}")
         except Exception as storage_error:
-            print(f"❌ ERROR uploading to storage: {str(storage_error)}")
-            print(f"❌ Full traceback: {traceback.format_exc()}")
+            print(f"ERROR uploading to storage: {str(storage_error)}")
+            print(f"Full traceback: {traceback.format_exc()}")
             if temp_upload_path and os.path.exists(temp_upload_path):
                 os.unlink(temp_upload_path)
             raise HTTPException(
@@ -229,7 +219,7 @@ async def upload_file(
             )
         
         # Create application record or get existing one
-        print(f"💾 Checking for existing application or creating new record...")
+        print(f"Checking for existing application or creating new record...")
         try:
             # MODIFIED: Now returns tuple (app_id, is_new)
             app_id, is_new = await sbom_service.store_application(
@@ -240,10 +230,10 @@ async def upload_file(
                 storage_path=upload_result["storage_path"],
                 platform=platform
             )
-            print(f"✅ Application {'created' if is_new else 'found existing'}: {app_id}")
+            print(f"Application {'created' if is_new else 'found existing'}: {app_id}")
         except Exception as db_error:
-            print(f"❌ ERROR creating database record: {str(db_error)}")
-            print(f"❌ Full traceback: {traceback.format_exc()}")
+            print(f"ERROR creating database record: {str(db_error)}")
+            print(f"Full traceback: {traceback.format_exc()}")
             if temp_upload_path and os.path.exists(temp_upload_path):
                 os.unlink(temp_upload_path)
             raise HTTPException(
@@ -253,7 +243,7 @@ async def upload_file(
         
         # MODIFIED: Only start background processing if this is a new file
         if is_new:
-            print(f"🚀 Starting background SBOM generation for new file...")
+            print(f"Starting background SBOM generation for new file...")
             try:
                 def run_background():
                     asyncio.run(process_sbom_background(
@@ -262,22 +252,22 @@ async def upload_file(
                 
                 thread = threading.Thread(target=run_background, daemon=True)
                 thread.start()
-                print(f"✅ Background task started in separate thread")
+                print(f"Background task started in separate thread")
             except Exception as bg_error:
-                print(f"⚠️  Background task failed to queue: {str(bg_error)}")
+                print(f"Background task failed to queue: {str(bg_error)}")
         else:
-            print(f"♻️  Using existing SBOM data, no background processing needed")
+            print(f"Using existing SBOM data, no background processing needed")
         
         # Clean up temp upload file
         if temp_upload_path and os.path.exists(temp_upload_path):
             try:
                 os.unlink(temp_upload_path)
-                print(f"🗑️  Temp file cleaned up")
+                print(f"Temp file cleaned up")
             except:
                 pass
         
         print(f"{'='*60}")
-        print(f"✅ UPLOAD SUCCESSFUL")
+        print(f"UPLOAD SUCCESSFUL")
         print(f"{'='*60}\n")
         
         # MODIFIED: Enhanced response with duplicate info
@@ -303,7 +293,7 @@ async def upload_file(
         raise
     except Exception as e:
         print(f"\n{'='*60}")
-        print(f"❌ UPLOAD FAILED - UNHANDLED EXCEPTION")
+        print(f"UPLOAD FAILED - UNHANDLED EXCEPTION")
         print(f"{'='*60}")
         print(f"Error: {str(e)}")
         print(f"Type: {type(e).__name__}")
@@ -350,7 +340,7 @@ async def get_upload_status(
     except HTTPException:
         raise
     except Exception as e:
-        print(f"❌ Status check failed: {str(e)}")
+        print(f"Status check failed: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e)

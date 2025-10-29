@@ -1,8 +1,3 @@
-"""
-Database connection using Supabase client.
-Provides singleton instance for database operations.
-"""
-
 from supabase import create_client, Client
 from app.core.config import settings
 from typing import Optional
@@ -17,16 +12,13 @@ class DatabaseClient:
     def get_client(cls) -> Client:
         """
         Get or create Supabase client instance.
-        
-        Returns:
-            Client: Supabase client instance
         """
         if cls._instance is None:
             cls._instance = create_client(
                 supabase_url=settings.SUPABASE_URL,
                 supabase_key=settings.SUPABASE_SERVICE_KEY  # Use service key for backend
             )
-            print("✅ Supabase client initialized")
+            print("Supabase client initialized")
         
         return cls._instance
     
@@ -40,10 +32,6 @@ class DatabaseClient:
 def get_supabase_client() -> Client:
     """
     Dependency function to get Supabase client.
-    Use this in FastAPI route dependencies.
-    
-    Returns:
-        Client: Supabase client instance
     """
     return DatabaseClient.get_client()
 

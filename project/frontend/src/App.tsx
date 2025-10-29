@@ -9,6 +9,9 @@ import { useAuthStore } from './store/authStore';
 import { UploadPage } from './pages/UploadPage';
 import { ApplicationsPage } from './pages/ApplicationsPage';
 import { ApplicationDetailPage } from './pages/ApplicationDetailPage';
+import { AboutPage } from './pages/AboutPage';
+import { ContactPage } from './pages/ContactPage';
+import { ComparePage } from './pages/ComparePage';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -136,6 +139,30 @@ function App() {
           element={
             <ProtectedRoute>
               <ApplicationDetailPage />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/about" 
+          element={
+            <ProtectedRoute>
+              <AboutPage />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/contact" 
+          element={
+            <ProtectedRoute>
+              <ContactPage />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/compare" 
+          element={
+            <ProtectedRoute>
+              <ComparePage />
             </ProtectedRoute>
           } 
         />
