@@ -31,6 +31,11 @@ class Settings(BaseSettings):
     # Storage Configuration
     STORAGE_BUCKET: str = "uploads"
     MAX_FILE_SIZE: int = 52428800  # 50MB in bytes
+
+    # Email Configuration (SMTP)
+    SMTP_EMAIL: Optional[str] = None
+    SMTP_PASSWORD: Optional[str] = None
+    RECIPIENT_EMAIL: Optional[str] = None
     
     # CORS Configuration (for frontend)
     #ALLOWED_ORIGINS: list[str] = [
