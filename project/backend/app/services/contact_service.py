@@ -1,9 +1,7 @@
 from supabase import Client
 from typing import Dict
 from datetime import datetime
-import smtplib
-from email.mime.text import MIMEText
-from email.mime.multipart import MIMEMultipart
+import resend
 from app.core.config import settings
 import logging
 
@@ -12,11 +10,9 @@ logger = logging.getLogger(__name__)
 class ContactService:
     def __init__(self, client: Client):
         self.client = client
-        self.smtp_server = "smtp.gmail.com"
-        self.smtp_port = 587
-        self.smtp_email = settings.SMTP_EMAIL
-        self.smtp_password = settings.SMTP_PASSWORD
-        self.recipient_email = settings.RECIPIENT_EMAIL
+        resend.api_key = settings.RESEND_API_KEY
+        self.from_email = settings.RESEND_FROM_EMAIL
+        self.to_email = settings.RESEND_TO_EMAIL
     
     async def send_contact_message(
         self, 
@@ -46,14 +42,13 @@ class ContactService:
             if not response.data:
                 raise Exception("Failed to save contact message")
             
-            # Try to send email but DON'T crash if it fails
+            # Try to send email via Resend
             try:
                 self._send_email(category, subject, message, user_email)
                 logger.info(f"Email sent successfully for contact {response.data[0]['id']}")
             except Exception as email_error:
-                # Log the error but don't crash
                 logger.error(f"Failed to send email notification: {email_error}")
-                # Don't raise - just continue
+                # Don't crash - just log
             
             return {
                 "message": "Your message has been sent successfully!",
@@ -64,15 +59,9 @@ class ContactService:
             raise Exception(f"Failed to send contact message: {str(e)}")
     
     def _send_email(self, category: str, subject: str, message: str, user_email: str):
-        """Send email using SMTP."""
+        """Send email using Resend API."""
         try:
-            msg = MIMEMultipart('alternative')
-            msg['Subject'] = f"[{category.upper()}] {subject}"
-            msg['From'] = self.smtp_email
-            msg['To'] = self.recipient_email
-            msg['Reply-To'] = user_email
-            
-            html = f"""
+            html_content = f"""
             <html>
               <body style="font-family: Arial, sans-serif; line-height: 1.6; color: #333;">
                 <div style="max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f9f9f9;">
@@ -115,7 +104,7 @@ class ContactService:
                       </div>
                     </div>
                     <div style="margin-top: 30px; padding: 15px; background-color: #e8f4f8; border-radius: 4px; text-align: center; font-size: 12px; color: #666;">
-                      💡 <strong>Tip:</strong> You can reply directly to this email to respond to {user_email}
+                      💡 <strong>Reply to:</strong> {user_email}
                     </div>
                   </div>
                   <div style="margin-top: 20px; text-align: center; font-size: 12px; color: #999;">
@@ -126,16 +115,18 @@ class ContactService:
             </html>
             """
             
-            part = MIMEText(html, 'html')
-            msg.attach(part)
+            # Send email via Resend
+            params = {
+                "from": self.from_email,
+                "to": [self.to_email],
+                "subject": f"[{category.upper()}] {subject}",
+                "html": html_content,
+                "reply_to": user_email
+            }
             
-            # Send email
-            server = smtplib.SMTP(self.smtp_server, self.smtp_port)
-            server.starttls()
-            server.login(self.smtp_email, self.smtp_password)
-            server.send_message(msg)
-            server.quit()
+            email = resend.Emails.send(params)
+            logger.info(f"Resend email sent: {email}")
                 
         except Exception as e:
-            logger.error(f"SMTP error: {str(e)}")
+            logger.error(f"Resend error: {str(e)}")
             raise

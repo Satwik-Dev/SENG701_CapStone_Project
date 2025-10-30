@@ -36,6 +36,11 @@ class Settings(BaseSettings):
     SMTP_EMAIL: Optional[str] = None
     SMTP_PASSWORD: Optional[str] = None
     RECIPIENT_EMAIL: Optional[str] = None
+
+    # Email settings
+    RESEND_API_KEY: str = ""
+    RESEND_FROM_EMAIL: str = "onboarding@resend.dev"
+    RESEND_TO_EMAIL: str = ""
     
     # CORS Configuration (for frontend)
     #ALLOWED_ORIGINS: list[str] = [
