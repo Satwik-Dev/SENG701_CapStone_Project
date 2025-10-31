@@ -8,19 +8,19 @@ export default {
     extend: {
       colors: {
         primary: {
-          50: '#eff6ff',
-          100: '#dbeafe',
-          200: '#bfdbfe',
-          300: '#93c5fd',
-          400: '#60a5fa',
-          500: '#3b82f6',
-          600: '#2563eb',
-          700: '#1d4ed8',
-          800: '#1e40af',
-          900: '#1e3a8a',
+          50: '#eef2fb',
+          100: '#dce5f7',
+          200: '#b9ccef',
+          300: '#96b2e7',
+          400: '#7399df',
+          500: '#5B6FB5',  // Your main brand color
+          600: '#4A5FA4',  // Your secondary brand color
+          700: '#3D4E8D',  // Your accent brand color
+          800: '#2f3d6f',
+          900: '#212c51',
         },
       },
     },
   },
-  plugins: [],
+  plugins: [require('tailwind-scrollbar-hide')],
 }
