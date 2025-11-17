@@ -32,23 +32,25 @@ class Settings(BaseSettings):
     STORAGE_BUCKET: str = "uploads"
     MAX_FILE_SIZE: int = 52428800  # 50MB in bytes
 
-    # Frontend URL for reset links
-    FRONTEND_URL: str = "http://localhost:5173" # or https://sbommanager.vercel.app
+    # Frontend URL for reset links - environment aware
+    FRONTEND_URL: Optional[str] = None
     PASSWORD_RESET_TOKEN_EXPIRE_MINUTES: int = 30
 
-    # Email settings
-    RESEND_API_KEY: str = "re_UFLYuG4S_Ni3XGpmz4BJUyMrKda52fwhG"
+    # Email settings - MUST be set via environment variables
+    RESEND_API_KEY: str
     RESEND_FROM_EMAIL: str = "onboarding@resend.dev"
-    RESEND_TO_EMAIL: str = "allasatwik93@gmail.com"
+    RESEND_TO_EMAIL: str
     
-    # CORS Configuration (for frontend)
-    #ALLOWED_ORIGINS: list[str] = [
-    #    "http://localhost:5173",  # Vite dev server
-    #    "https://*.vercel.app",  # prod server
-    #    "http://localhost:3000",  # Alternative React port
-    #    "http://127.0.0.1:5173", # backend server
-    #    "http://127.0.0.1:3000", # backend sever backup
-    #]
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        
+        # Auto-configure FRONTEND_URL based on environment if not explicitly set
+        if self.FRONTEND_URL is None:
+            if self.ENVIRONMENT == "production":
+                self.FRONTEND_URL = "https://sbommanager.vercel.app"
+            else:
+                # Development environment
+                self.FRONTEND_URL = "http://localhost:5173"
     
     class Config:
         # Look for .env file in parent directory (project/)
@@ -66,6 +68,9 @@ if settings.DEBUG:
     print("Configuration loaded successfully!")
     print(f"Project: {settings.PROJECT_NAME}")
     print(f"Environment: {settings.ENVIRONMENT}")
+    print(f"Frontend URL: {settings.FRONTEND_URL}")
     print(f"Supabase URL: {settings.SUPABASE_URL}")
     print(f"Storage Bucket: {settings.STORAGE_BUCKET}")
     print(f"Max File Size: {settings.MAX_FILE_SIZE / (1024*1024):.0f}MB")
+    # NEVER print sensitive values like API keys!
+    print(f"Resend API Key: {'*' * 20} (hidden)")
