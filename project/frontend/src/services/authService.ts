@@ -27,10 +27,9 @@ export const authService = {
   },
 
   // Reset password with token and email
-  async resetPassword(email: string, token: string, newPassword: string): Promise<{ message: string }> {
+  async resetPassword(token: string, newPassword: string): Promise<{ message: string }> {
     const response = await api.post('/auth/reset-password', { 
-      email,
-      token, 
+      token,
       new_password: newPassword 
     });
     return response.data;

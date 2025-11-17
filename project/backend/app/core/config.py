@@ -32,23 +32,22 @@ class Settings(BaseSettings):
     STORAGE_BUCKET: str = "uploads"
     MAX_FILE_SIZE: int = 52428800  # 50MB in bytes
 
-    # Email Configuration (SMTP)
-    SMTP_EMAIL: Optional[str] = None
-    SMTP_PASSWORD: Optional[str] = None
-    RECIPIENT_EMAIL: Optional[str] = None
+    # Frontend URL for reset links
+    FRONTEND_URL: str = "http://localhost:5173" # or https://sbommanager.vercel.app
+    PASSWORD_RESET_TOKEN_EXPIRE_MINUTES: int = 30
 
     # Email settings
-    RESEND_API_KEY: str = ""
+    RESEND_API_KEY: str = "re_UFLYuG4S_Ni3XGpmz4BJUyMrKda52fwhG"
     RESEND_FROM_EMAIL: str = "onboarding@resend.dev"
-    RESEND_TO_EMAIL: str = ""
+    RESEND_TO_EMAIL: str = "allasatwik93@gmail.com"
     
     # CORS Configuration (for frontend)
     #ALLOWED_ORIGINS: list[str] = [
     #    "http://localhost:5173",  # Vite dev server
     #    "https://*.vercel.app",  # prod server
     #    "http://localhost:3000",  # Alternative React port
-    #    "http://127.0.0.1:5173",
-    #    "http://127.0.0.1:3000",
+    #    "http://127.0.0.1:5173", # backend server
+    #    "http://127.0.0.1:3000", # backend sever backup
     #]
     
     class Config:

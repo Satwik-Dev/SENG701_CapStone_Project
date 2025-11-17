@@ -4,6 +4,7 @@ from app.core.security import create_access_token, create_refresh_token, verify_
 from app.models.user import UserCreate, UserLogin, UserResponse, Token
 from datetime import timedelta
 from app.core.config import settings
+from app.services.password_reset_service import PasswordResetService
 
 
 class AuthService:
@@ -14,6 +15,7 @@ class AuthService:
         Initialize auth service.
         """
         self.client = supabase_client
+        self.password_reset_service = PasswordResetService(supabase_client)
     
     async def register(self, user_data: UserCreate) -> Dict[str, Any]:
         """
@@ -175,54 +177,11 @@ class AuthService:
             raise Exception(f"Failed to get user: {str(e)}")
     
     async def request_password_reset(self, email: str) -> Dict[str, str]:
-        """
-        Request password reset email.
-        """
-        try:
-            self.client.auth.reset_password_email(email)
-            
-            return {
-                "message": "If an account exists with this email, a password reset link has been sent."
-            }
-            
-        except Exception as e:
-            # Don't reveal if email exists or not (security best practice)
-            return {
-                "message": "If an account exists with this email, a password reset link has been sent."
-            }
+        """Request password reset via Supabase"""
+        return await self.password_reset_service.request_password_reset(email)
 
-    async def reset_password(self, email: str, token: str, new_password: str) -> Dict[str, str]:
-        """
-        Reset user password using email and token from reset email.
-        """
-        try:
-            # Use Supabase's verify OTP method with the token and email
-            response = self.client.auth.verify_otp({
-                "email": email,
-                "token": token,
-                "type": "recovery"
-            })
-            
-            if response.user is None:
-                raise Exception("Invalid or expired password reset token")
-            
-            user_id = response.user.id
-            
-            # Now update the password using Admin API
-            update_response = self.client.auth.admin.update_user_by_id(
-                user_id,
-                {"password": new_password}
-            )
-            
-            if update_response.user is None:
-                raise Exception("Failed to update password")
-            
-            return {
-                "message": "Password has been reset successfully. You can now log in with your new password."
-            }
-            
-        except Exception as e:
-            error_msg = str(e)
-            if "Invalid" in error_msg or "expired" in error_msg:
-                raise Exception("Password reset link has expired or is invalid. Please request a new one.")
-            raise Exception(f"Password reset failed: {error_msg}")
+    async def reset_password(self, access_token: str, new_password: str) -> Dict[str, str]:
+        """Reset password using Supabase token."""
+        return await self.password_reset_service.verify_and_reset_password(
+            access_token, new_password
+        )

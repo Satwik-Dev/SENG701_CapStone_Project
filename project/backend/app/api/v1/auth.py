@@ -95,7 +95,7 @@ async def forgot_password(
     auth_service: AuthService = Depends(get_auth_service)
 ):
     """
-    Request password reset email.
+    Request password reset email via Supabase.
     """
     result = await auth_service.request_password_reset(data.email)
     return result
@@ -106,7 +106,8 @@ async def reset_password(
     auth_service: AuthService = Depends(get_auth_service)
 ):
     """
-    Reset password with token and email.
+    Reset password using Supabase access token.
+    Expects access_token from Supabase callback in the token field.
     """
-    result = await auth_service.reset_password(data.email, data.token, data.new_password)
+    result = await auth_service.reset_password(data.token, data.new_password)
     return result
