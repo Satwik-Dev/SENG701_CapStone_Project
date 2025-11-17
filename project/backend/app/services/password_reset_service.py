@@ -13,19 +13,22 @@ class PasswordResetService:
     async def request_password_reset(self, email: str) -> Dict[str, str]:
         """
         Request password reset using Supabase's built-in functionality.
-        Supabase will send the email and handle the token.
         """
         try:
             logger.info(f"Password reset requested for email: {email}")
             
+            # Ensure redirect_to doesn't have trailing slash
+            redirect_url = f"{settings.FRONTEND_URL}/auth/callback"
+            
             response = self.client.auth.reset_password_email(
                 email,
                 {
-                    "redirect_to": f"{settings.FRONTEND_URL}/auth/callback"
+                    "redirect_to": redirect_url
                 }
             )
             
-            logger.info(f"Password reset email sent via Supabase for {email}")
+            logger.info(f"Password reset email sent via Supabase to {email}")
+            logger.info(f"Redirect URL: {redirect_url}")
             
             return {
                 "message": "If an account exists with this email, a password reset link has been sent."
