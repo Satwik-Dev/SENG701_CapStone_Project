@@ -27,6 +27,8 @@ yarn.lock
 project/.env
 project/backend/.env
 project/frontend/.env
+project/frontend/.env.local
+project/frontend/.env.production
 
 # Build outputs
 dist/

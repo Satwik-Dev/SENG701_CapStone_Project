@@ -3,8 +3,6 @@ import { Toaster } from 'react-hot-toast';
 import { RegisterPage } from './pages/RegisterPage';
 import { LoginPage } from './pages/LoginPage';
 import { DashboardPage } from './pages/DashboardPage';
-import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
-import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { useAuthStore } from './store/authStore';
 import { UploadPage } from './pages/UploadPage';
 import { ApplicationsPage } from './pages/ApplicationsPage';
@@ -12,6 +10,9 @@ import { ApplicationDetailPage } from './pages/ApplicationDetailPage';
 import { AboutPage } from './pages/AboutPage';
 import { ContactPage } from './pages/ContactPage';
 import { ComparePage } from './pages/ComparePage';
+import AuthCallbackPage from './pages/AuthCallbackPage';
+import ForgotPasswordPage from './pages/ForgotPasswordPage';
+import ResetPasswordPage from './pages/ResetPasswordPage';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -93,19 +94,21 @@ function App() {
           } 
         />
         <Route 
-          path="/forgot-password" 
-          element={
-            <PublicRoute>
-              <ForgotPasswordPage />
-            </PublicRoute>
+        path="/forgot-password" 
+        element={
+          <ForgotPasswordPage />
           } 
         />
         <Route 
-          path="/reset-password" 
+        path="/reset-password" 
+        element={
+          <ResetPasswordPage />
+          } 
+        />
+        <Route 
+          path="/auth/callback" 
           element={
-            <PublicRoute>
-              <ResetPasswordPage />
-            </PublicRoute>
+            <AuthCallbackPage />
           } 
         />
         
