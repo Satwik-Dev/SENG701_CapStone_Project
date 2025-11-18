@@ -67,7 +67,7 @@ export const AboutPage: React.FC = () => {
   const stats = [
     { label: 'Platforms Supported', value: '5+', icon: Globe },
     { label: 'Detection Accuracy', value: '>90%', icon: Target },
-    { label: 'Avg Analysis Time', value: '<2min', icon: Zap },
+    { label: 'Avg Analysis Time', value: '<1min', icon: Zap },
     { label: 'Export Formats', value: '2+', icon: FileText }
   ];
 

@@ -308,7 +308,7 @@ export const UploadPage: React.FC = () => {
                   </div>
                 </div>
                 <p className="text-xs text-gray-500 mt-3">
-                  Maximum file size: {maxFileSize / (1024 * 1024)}MB
+                  <span className="font-medium">Maximum file size: </span> {maxFileSize / (1024 * 1024)}MB
                 </p>
               </div>
             </div>
