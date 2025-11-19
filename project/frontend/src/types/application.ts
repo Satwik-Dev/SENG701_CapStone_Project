@@ -8,6 +8,13 @@ export interface Application {
   file_size: number;
   created_at: string;
   analyzed_at?: string;
+  binary_type?: 'mobile' | 'desktop' | 'server' | 'container' | 'library' | 'unknown';
+  os?: string;
+  manufacturer?: string;
+  supplier?: string;
+  sbom_format?: 'cyclonedx' | 'spdx';
+  similarity_score?: number;
+  match_field?: string;
 }
 
 export interface ApplicationDetail extends Application {
@@ -21,6 +28,7 @@ export interface ApplicationDetail extends Application {
   error_message?: string;
   components: Component[];
   sbom_data?: any;
+  spdx_data?: any;
 }
 
 export interface Component {

@@ -8,7 +8,8 @@ import {
   Loader2,
   CheckCircle,
   XCircle,
-  Clock
+  Clock,
+  X
 } from 'lucide-react';
 import { DashboardLayout } from '../components/layout/DashboardLayout';
 import { Button } from '../components/common/Button';
@@ -26,8 +27,8 @@ export const ApplicationsPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [platformFilter, setPlatformFilter] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('');
+  const [binaryTypeFilter, setBinaryTypeFilter] = useState<string>('');
 
-  // Fetch applications
   const fetchApplications = async (silent = false) => {
     if (!silent) {
       setLoading(true);
@@ -39,6 +40,7 @@ export const ApplicationsPage: React.FC = () => {
         limit: 10,
         platform: platformFilter || undefined,
         status: statusFilter || undefined,
+        binary_type: binaryTypeFilter || undefined,
       });
 
       setApplications(data.items);
@@ -55,19 +57,16 @@ export const ApplicationsPage: React.FC = () => {
     }
   };
 
-  // Load applications on mount and filter change
   useEffect(() => {
-    fetchApplications(false);//intial load with loading state
+    fetchApplications(false);
     
-    // silent auto-refresh every 10 seconds
     const interval = setInterval(() => {
-      fetchApplications(true);//silent upgrade
+      fetchApplications(true);
     }, 10000);
     
     return () => clearInterval(interval);
-  }, [page, platformFilter, statusFilter]);
+  }, [page, platformFilter, statusFilter, binaryTypeFilter]);
 
-  // Handle delete
   const handleDelete = async (id: string, name: string) => {
     if (!window.confirm(`Are you sure you want to delete "${name}"?`)) {
       return;
@@ -82,7 +81,6 @@ export const ApplicationsPage: React.FC = () => {
     }
   };
 
-  // Format date
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -93,7 +91,6 @@ export const ApplicationsPage: React.FC = () => {
     });
   };
 
-  // Format file size
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return '0 Bytes';
     const k = 1024;
@@ -102,7 +99,6 @@ export const ApplicationsPage: React.FC = () => {
     return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
   };
 
-  // Get status badge
   const getStatusBadge = (status: string) => {
     const styles = {
       completed: 'bg-green-100 text-green-800 border-green-200',
@@ -124,7 +120,6 @@ export const ApplicationsPage: React.FC = () => {
     );
   };
 
-  // Get platform badge
   const getPlatformBadge = (platform?: string) => {
     if (!platform || platform === 'unknown') return null;
 
@@ -143,10 +138,37 @@ export const ApplicationsPage: React.FC = () => {
     );
   };
 
+  const getBinaryTypeBadge = (binaryType?: string) => {
+    if (!binaryType || binaryType === 'unknown') return null;
+
+    const colors = {
+      mobile: 'bg-purple-100 text-purple-800',
+      desktop: 'bg-indigo-100 text-indigo-800',
+      server: 'bg-teal-100 text-teal-800',
+      container: 'bg-cyan-100 text-cyan-800',
+      library: 'bg-pink-100 text-pink-800',
+    };
+
+    return (
+      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${colors[binaryType as keyof typeof colors] || 'bg-gray-100 text-gray-800'}`}>
+        {binaryType.charAt(0).toUpperCase() + binaryType.slice(1)}
+      </span>
+    );
+  };
+
+  const filteredApplications = applications.filter(app => {
+    if (!searchQuery) return true;
+    const query = searchQuery.toLowerCase();
+    return (
+      app.name.toLowerCase().includes(query) ||
+      app.version?.toLowerCase().includes(query) ||
+      app.platform?.toLowerCase().includes(query)
+    );
+  });
+
   return (
     <DashboardLayout>
       <div className="p-6 lg:p-8">
-        {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-3xl font-bold text-gray-900 mb-2">Applications</h1>
@@ -160,20 +182,27 @@ export const ApplicationsPage: React.FC = () => {
           </Button>
         </div>
 
-        {/* Filters */}
         <div className="bg-white rounded-lg shadow-sm p-4 mb-6 border border-gray-200">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            {/* Search */}
-            <div className="md:col-span-2">
-              <Input
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <input
+                type="text"
                 placeholder="Search applications..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full"
+                className="w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white"
               />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              )}
             </div>
 
-            {/* Platform Filter */}
             <select
               value={platformFilter}
               onChange={(e) => setPlatformFilter(e.target.value)}
@@ -187,7 +216,19 @@ export const ApplicationsPage: React.FC = () => {
               <option value="linux">Linux</option>
             </select>
 
-            {/* Status Filter */}
+            <select
+              value={binaryTypeFilter}
+              onChange={(e) => setBinaryTypeFilter(e.target.value)}
+              className="px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white"
+            >
+              <option value="">All Types</option>
+              <option value="mobile">Mobile</option>
+              <option value="desktop">Desktop</option>
+              <option value="server">Server</option>
+              <option value="container">Container</option>
+              <option value="library">Library</option>
+            </select>
+
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
@@ -201,25 +242,26 @@ export const ApplicationsPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Applications Table */}
         {loading ? (
           <div className="bg-white rounded-lg shadow-sm p-12 text-center border border-gray-200">
             <Loader2 className="w-12 h-12 animate-spin text-primary-600 mx-auto mb-4" />
             <p className="text-gray-600">Loading applications...</p>
           </div>
-        ) : applications.length === 0 ? (
+        ) : filteredApplications.length === 0 ? (
           <div className="bg-white rounded-lg shadow-sm p-12 text-center border border-gray-200">
             <Upload className="w-16 h-16 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              No applications yet
+              No applications found
             </h3>
             <p className="text-gray-600 mb-6">
-              Upload your first application to generate an SBOM
+              {searchQuery ? 'Try adjusting your search' : 'Upload your first application to generate an SBOM'}
             </p>
-            <Button variant="primary" onClick={() => navigate('/upload')}>
-              <Upload className="w-5 h-5 mr-2" />
-              Upload Application
-            </Button>
+            {!searchQuery && (
+              <Button variant="primary" onClick={() => navigate('/upload')}>
+                <Upload className="w-5 h-5 mr-2" />
+                Upload Application
+              </Button>
+            )}
           </div>
         ) : (
           <div className="bg-white rounded-lg shadow-sm overflow-hidden border border-gray-200">
@@ -227,62 +269,63 @@ export const ApplicationsPage: React.FC = () => {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/4">
                       Application
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Platform
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6">
+                      Platform/Type
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/8">
                       Status
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/12">
                       Components
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/12">
                       Size
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6">
                       Date
                     </th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider w-1/12">
                       Actions
                     </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {applications.map((app) => (
+                  {filteredApplications.map((app) => (
                     <tr key={app.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center">
-                          <div>
-                            <div className="text-sm font-medium text-gray-900">
-                              {app.name}
-                            </div>
-                            {app.version && (
-                              <div className="text-sm text-gray-500">
-                                v{app.version}
-                              </div>
-                            )}
+                      <td className="px-4 py-3">
+                        <div className="flex items-start flex-col">
+                          <div className="text-sm font-medium text-gray-900 truncate max-w-xs">
+                            {app.name}
                           </div>
+                          {app.version && (
+                            <div className="text-xs text-gray-500 mt-1">
+                              v{app.version}
+                            </div>
+                          )}
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {getPlatformBadge(app.platform)}
+                      <td className="px-4 py-3">
+                        <div className="flex flex-col gap-1">
+                          {getPlatformBadge(app.platform)}
+                          {getBinaryTypeBadge(app.binary_type)}
+                        </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      <td className="px-4 py-3">
                         {getStatusBadge(app.status)}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <td className="px-4 py-3 text-sm text-gray-500">
                         {app.component_count || 0}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">
                         {formatFileSize(app.file_size)}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">
                         {formatDate(app.created_at)}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                      <td className="px-4 py-3 text-right">
                         <div className="flex items-center justify-end gap-2">
                           <button
                             onClick={() => navigate(`/applications/${app.id}`)}
@@ -306,7 +349,6 @@ export const ApplicationsPage: React.FC = () => {
               </table>
             </div>
 
-            {/* Pagination */}
             {totalPages > 1 && (
               <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
                 <div className="flex-1 flex justify-between sm:hidden">
