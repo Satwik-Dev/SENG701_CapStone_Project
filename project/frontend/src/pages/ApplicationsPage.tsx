@@ -14,7 +14,9 @@ import {
 import { DashboardLayout } from '../components/layout/DashboardLayout';
 import { Button } from '../components/common/Button';
 import { Input } from '../components/common/Input';
+import { SearchAutocomplete } from '../components/common/SearchAutocomplete';
 import { applicationService } from '../services/applicationService';
+import { useDebounce } from '../hooks/useDebounce';
 import type { Application } from '../types/application';
 import toast from 'react-hot-toast';
 
@@ -28,6 +30,12 @@ export const ApplicationsPage: React.FC = () => {
   const [platformFilter, setPlatformFilter] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [binaryTypeFilter, setBinaryTypeFilter] = useState<string>('');
+  
+  // New state for fuzzy search
+  const [searchSuggestions, setSearchSuggestions] = useState<Application[]>([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [isSearchActive, setIsSearchActive] = useState(false);
+  const debouncedSearchQuery = useDebounce(searchQuery, 300);
 
   const fetchApplications = async (silent = false) => {
     if (!silent) {
@@ -57,6 +65,29 @@ export const ApplicationsPage: React.FC = () => {
     }
   };
 
+  // Fuzzy search function with LOWER threshold for partial matching
+  const performFuzzySearch = async (query: string) => {
+    if (!query || query.trim().length < 2) {
+      setSearchSuggestions([]);
+      setIsSearchActive(false);
+      return;
+    }
+
+    setSearchLoading(true);
+    setIsSearchActive(true);
+    try {
+      // Using threshold of 50 for more lenient partial matching
+      const data = await applicationService.searchApplications(query, 10, 50);
+      setSearchSuggestions(data.items);
+    } catch (error: any) {
+      console.error('Search failed:', error);
+      setSearchSuggestions([]);
+      // Don't show error toast for search failures, just log it
+    } finally {
+      setSearchLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchApplications(false);
     
@@ -67,6 +98,17 @@ export const ApplicationsPage: React.FC = () => {
     return () => clearInterval(interval);
   }, [page, platformFilter, statusFilter, binaryTypeFilter]);
 
+  // Trigger search when debounced query changes
+  useEffect(() => {
+    if (debouncedSearchQuery && debouncedSearchQuery.trim().length >= 2) {
+      performFuzzySearch(debouncedSearchQuery);
+    } else {
+      // When search is cleared or too short, reset to regular list
+      setSearchSuggestions([]);
+      setIsSearchActive(false);
+    }
+  }, [debouncedSearchQuery]);
+
   const handleDelete = async (id: string, name: string) => {
     if (!window.confirm(`Are you sure you want to delete "${name}"?`)) {
       return;
@@ -75,9 +117,30 @@ export const ApplicationsPage: React.FC = () => {
     try {
       await applicationService.deleteApplication(id);
       toast.success('Application deleted successfully');
+      
+      // Refresh both lists
       fetchApplications();
+      if (isSearchActive && debouncedSearchQuery) {
+        performFuzzySearch(debouncedSearchQuery);
+      }
     } catch (error) {
       toast.error('Failed to delete application');
+    }
+  };
+
+  // Handle selecting an application from suggestions
+  const handleSelectApplication = (app: Application) => {
+    navigate(`/applications/${app.id}`);
+  };
+
+  // Handle search query change
+  const handleSearchChange = (query: string) => {
+    setSearchQuery(query);
+    
+    // If search is being cleared, immediately reset search state
+    if (!query || query.trim().length === 0) {
+      setSearchSuggestions([]);
+      setIsSearchActive(false);
     }
   };
 
@@ -156,15 +219,18 @@ export const ApplicationsPage: React.FC = () => {
     );
   };
 
-  const filteredApplications = applications.filter(app => {
-    if (!searchQuery) return true;
-    const query = searchQuery.toLowerCase();
-    return (
-      app.name.toLowerCase().includes(query) ||
-      app.version?.toLowerCase().includes(query) ||
-      app.platform?.toLowerCase().includes(query)
-    );
-  });
+  // FIXED: Better logic for determining which applications to display
+  const getDisplayedApplications = () => {
+    // If search is active (user typed >= 2 chars), show search results
+    if (isSearchActive && searchQuery.trim().length >= 2) {
+      return searchSuggestions;
+    }
+    
+    // Otherwise, show regular applications list
+    return applications;
+  };
+
+  const filteredApplications = getDisplayedApplications();
 
   return (
     <DashboardLayout>
@@ -182,30 +248,26 @@ export const ApplicationsPage: React.FC = () => {
           </Button>
         </div>
 
+        {/* Search and Filters Section */}
         <div className="bg-white rounded-lg shadow-sm p-4 mb-6 border border-gray-200">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search applications..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-10 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white"
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery('')}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              )}
-            </div>
+            {/* Fuzzy Search with Autocomplete */}
+            <SearchAutocomplete
+              onSearch={handleSearchChange}
+              onSelectApplication={handleSelectApplication}
+              suggestions={searchSuggestions}
+              loading={searchLoading}
+              placeholder="Search applications..."
+              className="md:col-span-1"
+            />
 
+            {/* Platform Filter */}
             <select
               value={platformFilter}
-              onChange={(e) => setPlatformFilter(e.target.value)}
+              onChange={(e) => {
+                setPlatformFilter(e.target.value);
+                setPage(1);
+              }}
               className="px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white"
             >
               <option value="">All Platforms</option>
@@ -216,9 +278,13 @@ export const ApplicationsPage: React.FC = () => {
               <option value="linux">Linux</option>
             </select>
 
+            {/* Binary Type Filter */}
             <select
               value={binaryTypeFilter}
-              onChange={(e) => setBinaryTypeFilter(e.target.value)}
+              onChange={(e) => {
+                setBinaryTypeFilter(e.target.value);
+                setPage(1);
+              }}
               className="px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white"
             >
               <option value="">All Types</option>
@@ -229,9 +295,13 @@ export const ApplicationsPage: React.FC = () => {
               <option value="library">Library</option>
             </select>
 
+            {/* Status Filter */}
             <select
               value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
+              onChange={(e) => {
+                setStatusFilter(e.target.value);
+                setPage(1);
+              }}
               className="px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 bg-white"
             >
               <option value="">All Status</option>
@@ -242,6 +312,31 @@ export const ApplicationsPage: React.FC = () => {
           </div>
         </div>
 
+        {/* Active Search Indicator */}
+        {isSearchActive && searchQuery && (
+          <div className="mb-4 flex items-center justify-between bg-blue-50 border border-blue-200 rounded-lg px-4 py-2">
+            <div className="flex items-center gap-2">
+              <Search className="w-4 h-4 text-blue-600" />
+              <span className="text-sm text-blue-800">
+                Searching for: <span className="font-semibold">"{searchQuery}"</span>
+                {searchSuggestions.length > 0 && (
+                  <span className="ml-2">
+                    ({searchSuggestions.length} result{searchSuggestions.length !== 1 ? 's' : ''})
+                  </span>
+                )}
+              </span>
+            </div>
+            <button
+              onClick={() => handleSearchChange('')}
+              className="text-blue-600 hover:text-blue-800 text-sm font-medium flex items-center gap-1"
+            >
+              <X className="w-4 h-4" />
+              Clear Search
+            </button>
+          </div>
+        )}
+
+        {/* Results Section */}
         {loading ? (
           <div className="bg-white rounded-lg shadow-sm p-12 text-center border border-gray-200">
             <Loader2 className="w-12 h-12 animate-spin text-primary-600 mx-auto mb-4" />
@@ -249,14 +344,21 @@ export const ApplicationsPage: React.FC = () => {
           </div>
         ) : filteredApplications.length === 0 ? (
           <div className="bg-white rounded-lg shadow-sm p-12 text-center border border-gray-200">
-            <Upload className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+            <Search className="w-16 h-16 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-gray-900 mb-2">
-              No applications found
+              {isSearchActive ? 'No matching applications found' : 'No applications found'}
             </h3>
             <p className="text-gray-600 mb-6">
-              {searchQuery ? 'Try adjusting your search' : 'Upload your first application to generate an SBOM'}
+              {isSearchActive 
+                ? `No applications match "${searchQuery}". Try adjusting your search query or filters.`
+                : 'Upload your first application to generate an SBOM'
+              }
             </p>
-            {!searchQuery && (
+            {isSearchActive ? (
+              <Button variant="secondary" onClick={() => handleSearchChange('')}>
+                Clear Search
+              </Button>
+            ) : (
               <Button variant="primary" onClick={() => navigate('/upload')}>
                 <Upload className="w-5 h-5 mr-2" />
                 Upload Application
@@ -284,6 +386,11 @@ export const ApplicationsPage: React.FC = () => {
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/12">
                       Size
                     </th>
+                    {isSearchActive && (
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/12">
+                        Match
+                      </th>
+                    )}
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-1/6">
                       Date
                     </th>
@@ -322,6 +429,27 @@ export const ApplicationsPage: React.FC = () => {
                       <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">
                         {formatFileSize(app.file_size)}
                       </td>
+                      {isSearchActive && (
+                        <td className="px-4 py-3">
+                          {app.similarity_score !== undefined && (
+                            <div className="flex items-center gap-2">
+                              <span className={`text-xs font-medium ${
+                                app.similarity_score >= 90 ? 'text-green-600' :
+                                app.similarity_score >= 75 ? 'text-blue-600' :
+                                app.similarity_score >= 50 ? 'text-yellow-600' :
+                                'text-gray-600'
+                              }`}>
+                                {app.similarity_score.toFixed(0)}%
+                              </span>
+                              {app.match_field && (
+                                <span className="text-xs text-gray-400">
+                                  ({app.match_field})
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </td>
+                      )}
                       <td className="px-4 py-3 text-sm text-gray-500 whitespace-nowrap">
                         {formatDate(app.created_at)}
                       </td>
@@ -349,7 +477,8 @@ export const ApplicationsPage: React.FC = () => {
               </table>
             </div>
 
-            {totalPages > 1 && (
+            {/* Pagination - Only show when not searching */}
+            {!isSearchActive && totalPages > 1 && (
               <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
                 <div className="flex-1 flex justify-between sm:hidden">
                   <Button

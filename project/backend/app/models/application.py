@@ -113,3 +113,17 @@ class ApplicationList(BaseModel):
 class SBOMExport(BaseModel):
     """Model for SBOM export."""
     format: SBOMFormatEnum = SBOMFormatEnum.CYCLONEDX
+
+
+class ApplicationSearchResult(BaseModel):
+    id: str
+    name: str
+    version: Optional[str] = None
+    platform: Optional[str] = None
+    status: str
+    component_count: int
+    file_size: int
+    created_at: str
+    binary_type: Optional[str] = None
+    similarity_score: float = Field(..., description="Fuzzy match score (0-100)")
+    match_field: str = Field(..., description="Field that matched the query")
