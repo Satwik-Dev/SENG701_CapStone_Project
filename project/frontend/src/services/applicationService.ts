@@ -13,6 +13,7 @@ export const applicationService = {
     limit?: number;
     platform?: string;
     status?: string;
+    binary_type?: string;
   } = {}): Promise<PaginatedApplications> {
     const response = await api.get<PaginatedApplications>('/applications/', {
       params: {
@@ -20,6 +21,7 @@ export const applicationService = {
         limit: params.limit || 10,
         ...(params.platform && { platform: params.platform }),
         ...(params.status && { status: params.status }),
+        ...(params.binary_type && { binary_type: params.binary_type }),
       },
     });
     return response.data;

@@ -16,12 +16,14 @@ async def list_applications(
     limit: int = Query(10, ge=1, le=100),
     platform: Optional[str] = None,
     status: Optional[str] = None,
+    binary_type: Optional[str] = Query(None),
     supabase_client: Client = Depends(get_supabase_client)
 ):
     
     try:
         query = supabase_client.table("applications").select(
-            "id, name, version, platform, status, component_count, file_size, created_at, analyzed_at",
+            "id, name, version, platform, status, component_count, file_size, "
+            "created_at, analyzed_at, binary_type, os, manufacturer, supplier, sbom_format",
             count="exact"
         ).eq("user_id", user_id)
         
@@ -30,6 +32,9 @@ async def list_applications(
         
         if status:
             query = query.eq("status", status)
+        
+        if binary_type:
+            query = query.eq("binary_type", binary_type)
         
         offset = (page - 1) * limit
         query = query.order("created_at", desc=True).range(offset, offset + limit - 1)
@@ -162,13 +167,12 @@ async def export_sbom(
         
         app_data = response.data[0]
         
-        # Return requested format
         if format == "cyclonedx":
             sbom_data = app_data.get("sbom_data")
         elif format == "spdx":
             sbom_data = app_data.get("spdx_data")
         else:
-            sbom_data = app_data.get("sbom_data")  # Default to CycloneDX
+            sbom_data = app_data.get("sbom_data")
         
         if not sbom_data:
             raise HTTPException(

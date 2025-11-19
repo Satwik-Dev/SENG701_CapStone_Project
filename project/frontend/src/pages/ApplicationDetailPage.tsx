@@ -469,43 +469,105 @@ export const ApplicationDetailPage: React.FC = () => {
             {activeTab === 'info' && (
               <div className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Application Name */}
                   <div>
-                    <h3 className="text-sm font-medium text-gray-500 mb-2">File Name</h3>
-                    <p className="text-sm text-gray-900">{application.original_filename}</p>
+                    <h3 className="text-sm font-medium text-gray-500 mb-2">Application Name</h3>
+                    <p className="text-sm text-gray-900 font-semibold">{application.name}</p>
                   </div>
+                  
+                  {/* Application Version */}
+                  {application.version && (
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-500 mb-2">Version</h3>
+                      <p className="text-sm text-gray-900">{application.version}</p>
+                    </div>
+                  )}
+                  
+                  {/* File Name */}
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-500 mb-2">Original Filename</h3>
+                    <p className="text-sm text-gray-900 break-words">{application.original_filename}</p>
+                  </div>
+                  
+                  {/* File Hash */}
                   <div>
                     <h3 className="text-sm font-medium text-gray-500 mb-2">File Hash</h3>
-                    <p className="text-sm text-gray-900 font-mono">
-                      {application.file_hash?.substring(0, 16)}...
+                    <p className="text-sm text-gray-900 font-mono break-all">
+                      {application.file_hash?.substring(0, 32)}...
                     </p>
                   </div>
+                  
+                  {/* Created At */}
                   <div>
                     <h3 className="text-sm font-medium text-gray-500 mb-2">Created At</h3>
                     <p className="text-sm text-gray-900">{formatDate(application.created_at)}</p>
                   </div>
+                  
+                  {/* Analyzed At */}
                   {application.analyzed_at && (
                     <div>
                       <h3 className="text-sm font-medium text-gray-500 mb-2">Analyzed At</h3>
                       <p className="text-sm text-gray-900">{formatDate(application.analyzed_at)}</p>
                     </div>
                   )}
+                  
+                  {/* SBOM Format */}
+                  <div>
+                    <h3 className="text-sm font-medium text-gray-500 mb-2">SBOM Format</h3>
+                    <div className="flex gap-2">
+                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-primary-100 text-primary-800">
+                        {application.sbom_format?.toUpperCase() || 'CycloneDX'}
+                      </span>
+                      {application.spdx_data && (
+                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                          SPDX
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* Operating System */}
+                  {application.os && (
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-500 mb-2">Operating System</h3>
+                      <p className="text-sm text-gray-900">{application.os}</p>
+                    </div>
+                  )}
+                  
+                  {/* Binary Type */}
+                  {application.binary_type && (
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-500 mb-2">Binary Type</h3>
+                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
+                        {application.binary_type.charAt(0).toUpperCase() + application.binary_type.slice(1)}
+                      </span>
+                    </div>
+                  )}
+                  
+                  {/* Manufacturer */}
+                  {application.manufacturer && (
+                    <div>
+                      <h3 className="text-sm font-medium text-gray-500 mb-2">Manufacturer</h3>
+                      <p className="text-sm text-gray-900">{application.manufacturer}</p>
+                    </div>
+                  )}
+                  
+                  {/* Supplier */}
                   {application.supplier && (
                     <div>
                       <h3 className="text-sm font-medium text-gray-500 mb-2">Supplier</h3>
                       <p className="text-sm text-gray-900">{application.supplier}</p>
                     </div>
                   )}
-                  {application.sbom_format && (
-                    <div>
-                      <h3 className="text-sm font-medium text-gray-500 mb-2">SBOM Format</h3>
-                      <p className="text-sm text-gray-900">{application.sbom_format.toUpperCase()}</p>
-                    </div>
-                  )}
                 </div>
 
+                {/* Error Message (if any) */}
                 {application.error_message && (
                   <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-                    <h3 className="text-sm font-medium text-red-800 mb-2">Error Message</h3>
+                    <h3 className="text-sm font-medium text-red-800 mb-2 flex items-center gap-2">
+                      <XCircle className="w-4 h-4" />
+                      Error Message
+                    </h3>
                     <p className="text-sm text-red-700">{application.error_message}</p>
                   </div>
                 )}
