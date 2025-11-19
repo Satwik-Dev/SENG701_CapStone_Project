@@ -6,6 +6,12 @@ import type {
   Component 
 } from '../types/application';
 
+export interface SearchResult {
+  items: Application[];
+  query: string;
+  total_results: number;
+}
+
 export const applicationService = {
   // Get all applications (paginated)
   async getApplications(params: {
@@ -52,6 +58,22 @@ export const applicationService = {
   async exportSBOM(id: string, format: 'cyclonedx' | 'spdx' = 'cyclonedx'): Promise<any> {
     const response = await api.get(`/applications/${id}/export`, {
       params: { format },
+    });
+    return response.data;
+  },
+
+  // Fuzzy search applications
+  async searchApplications(
+    query: string,
+    limit: number = 10,
+    threshold: number = 60
+  ): Promise<SearchResult> {
+    const response = await api.get<SearchResult>('/applications/search', {
+      params: {
+        query,
+        limit,
+        threshold,
+      },
     });
     return response.data;
   },
