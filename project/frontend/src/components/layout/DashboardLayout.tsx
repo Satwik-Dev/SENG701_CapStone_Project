@@ -6,6 +6,7 @@ import {
   Upload, 
   FolderOpen, 
   BarChart3, 
+  BarChart2, 
   User, 
   LogOut,
   Menu,
@@ -31,6 +32,7 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
     { name: 'Applications', href: '/applications', icon: FolderOpen },
     { name: 'Statistics', href: '/statistics', icon: BarChart3 },
     { name: 'Compare', href: '/compare', icon: GitCompare },
+    { name: 'Statistics', href: '/statistics', icon: BarChart2 },
     { name: 'About', href: '/about', icon: Info },
     { name: 'Contact Us', href: '/contact', icon: Mail },
   ];

@@ -13,6 +13,7 @@ import { ComparePage } from './pages/ComparePage';
 import AuthCallbackPage from './pages/AuthCallbackPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
+import { StatisticsPage } from './pages/StatisticsPage';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -166,6 +167,14 @@ function App() {
           element={
             <ProtectedRoute>
               <ComparePage />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/statistics" 
+          element={
+            <ProtectedRoute>
+              <StatisticsPage />
             </ProtectedRoute>
           } 
         />
