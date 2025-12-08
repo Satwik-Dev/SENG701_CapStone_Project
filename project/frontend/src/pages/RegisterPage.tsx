@@ -433,13 +433,13 @@ export const RegisterPage: React.FC = () => {
                 />
                 <label htmlFor="terms" className="ml-2 block text-sm text-gray-700">
                   I agree to the{' '}
-                  <a href="#" className="text-[#5B6FB5] hover:text-[#4A5FA4] font-medium">
+                  <Link to="/terms-of-service" target="_blank" className="text-[#5B6FB5] hover:text-[#4A5FA4] font-medium underline">
                     Terms of Service
-                  </a>
+                  </Link>
                   {' '}and{' '}
-                  <a href="#" className="text-[#5B6FB5] hover:text-[#4A5FA4] font-medium">
+                  <Link to="/privacy-policy" target="_blank" className="text-[#5B6FB5] hover:text-[#4A5FA4] font-medium underline">
                     Privacy Policy
-                  </a>
+                  </Link>
                 </label>
               </div>
 
@@ -479,9 +479,9 @@ export const RegisterPage: React.FC = () => {
           {/* Footer */}
           <p className="text-center text-xs text-gray-500 mt-6">
             By creating an account, you agree to our{' '}
-            <a href="#" className="text-[#5B6FB5] hover:underline font-medium">Terms</a>
+            <Link to="/terms-of-service" target="_blank" className="text-[#5B6FB5] hover:underline font-medium">Terms</Link>
             {' '}and{' '}
-            <a href="#" className="text-[#5B6FB5] hover:underline font-medium">Privacy Policy</a>
+            <Link to="/privacy-policy" target="_blank" className="text-[#5B6FB5] hover:underline font-medium">Privacy Policy</Link>
           </p>
         </div>
       </div>

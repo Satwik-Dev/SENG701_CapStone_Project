@@ -346,9 +346,9 @@ export const LoginPage: React.FC = () => {
           {/* Footer */}
           <p className="text-center text-xs text-gray-500 mt-6">
             By signing in, you agree to our{' '}
-            <a href="#" className="text-[#5B6FB5] hover:underline font-medium">Terms of Service</a>
+            <Link to="/terms-of-service" target="_blank" className="text-[#5B6FB5] hover:underline font-medium">Terms of Service</Link>
             {' '}and{' '}
-            <a href="#" className="text-[#5B6FB5] hover:underline font-medium">Privacy Policy</a>
+            <Link to="/privacy-policy" target="_blank" className="text-[#5B6FB5] hover:underline font-medium">Privacy Policy</Link>
           </p>
         </div>
       </div>
