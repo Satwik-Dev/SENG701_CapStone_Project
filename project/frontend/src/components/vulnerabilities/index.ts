@@ -1,3 +1,3 @@
-export { default as VulnerabilitySummaryCard } from './VulnerabilitySummaryCard';
-export { default as VulnerabilityScanButton } from './VulnerabilityScanButton';
-export { default as VulnerabilityTable } from './VulnerabilityTable';
+export { VulnerabilitySummaryCard } from './VulnerabilitySummaryCard';
+export { VulnerabilityScanButton } from './VulnerabilityScanButton';
+export { VulnerabilityTable } from './VulnerabilityTable';
