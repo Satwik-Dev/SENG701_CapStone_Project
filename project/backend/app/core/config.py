@@ -40,6 +40,13 @@ class Settings(BaseSettings):
     RESEND_API_KEY: str
     RESEND_FROM_EMAIL: str = "onboarding@resend.dev"
     RESEND_TO_EMAIL: str
+
+    # Vulnerability Detection Configuration
+    NVD_API_KEY: Optional[str] = None
+    VULNERABILITY_SCAN_ENABLED: bool = True
+    VULNERABILITY_CACHE_TTL_HOURS: int = 24
+    VULNERABILITY_AUTO_SCAN: bool = False
+    VULNERABILITY_EMAIL_ALERTS: bool = True
     
     def __init__(self, **kwargs):
         super().__init__(**kwargs)

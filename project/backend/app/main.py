@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from app.api.v1.vulnerabilities import router as vulnerability_router
 from app.core.config import settings
 from app.api.v1 import api_router
 
@@ -24,6 +25,7 @@ app.add_middleware(
 
 # Include API routers
 app.include_router(api_router, prefix=settings.API_V1_PREFIX)
+app.include_router(vulnerability_router,prefix=settings.API_V1_PREFIX)
 
 
 @app.get("/")

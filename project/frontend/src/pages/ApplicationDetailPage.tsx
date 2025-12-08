@@ -15,8 +15,18 @@ import {
 } from 'lucide-react';
 import { DashboardLayout } from '../components/layout/DashboardLayout';
 import { Button } from '../components/common/Button';
+import { 
+  VulnerabilitySummaryCard, 
+  VulnerabilityScanButton,
+  VulnerabilityTable 
+} from '../components/vulnerabilities';
 import { applicationService } from '../services/applicationService';
+import { 
+  getVulnerabilitySummary, 
+  getApplicationVulnerabilities 
+} from '../services/vulnerabilityService';
 import type { ApplicationDetail, Component } from '../types/application';
+import type { VulnerabilitySummary, Vulnerability } from '../types/vulnerability';
 import toast from 'react-hot-toast';
 
 export const ApplicationDetailPage: React.FC = () => {
@@ -24,8 +34,13 @@ export const ApplicationDetailPage: React.FC = () => {
   const navigate = useNavigate();
   const [application, setApplication] = useState<ApplicationDetail | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'components' | 'sbom' | 'info'>('components');
+  const [activeTab, setActiveTab] = useState<'components' | 'vulnerabilities' | 'sbom' | 'info'>('components');
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // Vulnerability state
+  const [vulnSummary, setVulnSummary] = useState<VulnerabilitySummary | null>(null);
+  const [vulnerabilities, setVulnerabilities] = useState<any[]>([]);
+  const [loadingVulnerabilities, setLoadingVulnerabilities] = useState(false);
 
   // Fetch application details
   useEffect(() => {
@@ -40,12 +55,14 @@ export const ApplicationDetailPage: React.FC = () => {
         }
       }, 5000);
       
-      // Stop polling if status is completed or failed
-      //if (application?.status === 'completed' || application?.status === 'failed') {
-      //  clearInterval(interval);
-      //}
-      
       return () => clearInterval(interval);
+    }
+  }, [id, application?.status]);
+
+  // Fetch vulnerabilities when application is loaded
+  useEffect(() => {
+    if (id && application?.status === 'completed') {
+      fetchVulnerabilities();
     }
   }, [id, application?.status]);
 
@@ -68,6 +85,32 @@ export const ApplicationDetailPage: React.FC = () => {
       if (!silent) {
         setLoading(false);
       }
+    }
+  };
+
+  const fetchVulnerabilities = async () => {
+    if (!id) return;
+    
+    try {
+      setLoadingVulnerabilities(true);
+      const summary = await getVulnerabilitySummary(id);
+      setVulnSummary(summary);
+      
+      if (summary.total_count > 0) {
+        const details = await getApplicationVulnerabilities(id);
+        const flatVulnerabilities = (details.vulnerabilities || []).map((cv: any) => ({
+          ...cv.vulnerabilities,
+          component_name: cv.components?.name,
+          component_version: cv.components?.version,
+          is_affected: cv.is_affected,
+          confidence_level: cv.confidence_level
+        }));
+        setVulnerabilities(flatVulnerabilities);
+      }
+    } catch (error) {
+      console.error('Error fetching vulnerabilities:', error);
+    } finally {
+      setLoadingVulnerabilities(false);
     }
   };
 
@@ -305,6 +348,16 @@ export const ApplicationDetailPage: React.FC = () => {
                 Components ({application.component_count})
               </button>
               <button
+                onClick={() => setActiveTab('vulnerabilities')}
+                className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
+                  activeTab === 'vulnerabilities'
+                    ? 'border-primary-600 text-primary-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                Vulnerabilities {vulnSummary && vulnSummary.total_count > 0 && `(${vulnSummary.total_count})`}
+              </button>
+              <button
                 onClick={() => setActiveTab('sbom')}
                 className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
                   activeTab === 'sbom'
@@ -435,6 +488,33 @@ export const ApplicationDetailPage: React.FC = () => {
                         ))}
                       </tbody>
                     </table>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Vulnerabilities Tab */}
+            {activeTab === 'vulnerabilities' && (
+              <div>
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-xl font-semibold text-gray-900">Security Vulnerabilities</h2>
+                  <VulnerabilityScanButton 
+                    applicationId={id!}
+                    onScanComplete={fetchVulnerabilities}
+                  />
+                </div>
+                
+                <VulnerabilitySummaryCard 
+                  summary={vulnSummary}
+                  loading={loadingVulnerabilities}
+                />
+                
+                {vulnSummary && vulnSummary.total_count > 0 && (
+                  <div className="mt-6">
+                    <VulnerabilityTable 
+                      vulnerabilities={vulnerabilities}
+                      loading={loadingVulnerabilities}
+                    />
                   </div>
                 )}
               </div>
