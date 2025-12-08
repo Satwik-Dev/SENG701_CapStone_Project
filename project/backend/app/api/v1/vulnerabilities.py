@@ -475,6 +475,65 @@ async def get_vulnerability_notifications(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@router.post("/applications/{application_id}/scan")
+async def start_vulnerability_scan(
+    application_id: str,
+    force_refresh: bool = False,
+    user_id: str = Depends(get_current_user_id)
+):
+    """Start async vulnerability scan."""
+    try:
+        # Verify application exists and belongs to user
+        from app.core.database import get_supabase_client
+        client = get_supabase_client()
+        
+        app_result = client.table("applications")\
+            .select("id, user_id")\
+            .eq("id", application_id)\
+            .eq("user_id", user_id)\
+            .execute()
+        
+        if not app_result.data or len(app_result.data) == 0:
+            raise HTTPException(status_code=404, detail="Application not found")
+        
+        # Start scan
+        from app.services.vulnerability_service import VulnerabilityService
+        service = VulnerabilityService()
+        result = await service.start_vulnerability_scan(application_id, force_refresh)
+        
+        return result
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Error starting scan: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/scan-jobs/{job_id}/status")
+async def get_scan_job_status(
+    job_id: str,
+    user_id: str = Depends(get_current_user_id)
+):
+    """Get scan job status."""
+    try:
+        from app.services.vulnerability_service import VulnerabilityService
+        service = VulnerabilityService()
+        status = await service.get_scan_status(job_id)
+        
+        if "error" in status:
+            raise HTTPException(status_code=404, detail=status["error"])
+        
+        return status
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.patch("/notifications/{notification_id}/read")
 async def mark_notification_read(
     notification_id: str,
