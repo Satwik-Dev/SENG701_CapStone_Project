@@ -14,6 +14,8 @@ import AuthCallbackPage from './pages/AuthCallbackPage';
 import ForgotPasswordPage from './pages/ForgotPasswordPage';
 import ResetPasswordPage from './pages/ResetPasswordPage';
 import { StatisticsPage } from './pages/StatisticsPage';
+import { TermsOfServicePage } from './pages/TermsOfServicePage';
+import { PrivacyPolicyPage } from './pages/PrivacyPolicyPage';
 
 // Protected Route Component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -176,6 +178,19 @@ function App() {
             <ProtectedRoute>
               <StatisticsPage />
             </ProtectedRoute>
+          } 
+        />
+        {/* Terms and Privacy - Accessible without authentication */}
+        <Route 
+          path="/terms-of-service" 
+          element={
+            <TermsOfServicePage />
+          } 
+        />
+        <Route 
+          path="/privacy-policy" 
+          element={
+            <PrivacyPolicyPage />
           } 
         />
         
