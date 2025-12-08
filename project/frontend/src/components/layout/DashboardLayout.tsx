@@ -30,9 +30,8 @@ export const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children }) =>
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
     { name: 'Upload', href: '/upload', icon: Upload },
     { name: 'Applications', href: '/applications', icon: FolderOpen },
-    { name: 'Statistics', href: '/statistics', icon: BarChart3 },
-    { name: 'Compare', href: '/compare', icon: GitCompare },
     { name: 'Statistics', href: '/statistics', icon: BarChart2 },
+    { name: 'Compare', href: '/compare', icon: GitCompare },
     { name: 'About', href: '/about', icon: Info },
     { name: 'Contact Us', href: '/contact', icon: Mail },
   ];

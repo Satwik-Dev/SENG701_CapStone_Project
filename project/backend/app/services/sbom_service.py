@@ -19,6 +19,67 @@ class SBOMService:
         from app.core.database import get_supabase_client
         return get_supabase_client()
     
+    @staticmethod
+    def _extract_language_from_component(component: Dict) -> Optional[str]:
+        """
+        Extract programming language from component's properties array.
+        Syft stores language as: {"name": "syft:package:language", "value": "javascript"}
+        """
+        # First check properties array (where Syft stores language)
+        properties = component.get('properties', [])
+        if properties and isinstance(properties, list):
+            for prop in properties:
+                if isinstance(prop, dict):
+                    prop_name = prop.get('name', '')
+                    prop_value = prop.get('value', '')
+                    
+                    if prop_name == 'syft:package:language' and prop_value:
+                        return prop_value.capitalize()
+                    
+                    if prop_name == 'language' and prop_value:
+                        return prop_value.capitalize()
+        
+        # Fallback: infer from purl
+        purl = component.get('purl', '')
+        if purl:
+            purl_lower = purl.lower()
+            if 'pkg:npm/' in purl_lower:
+                return 'JavaScript'
+            elif 'pkg:pypi/' in purl_lower:
+                return 'Python'
+            elif 'pkg:maven/' in purl_lower or 'pkg:gradle/' in purl_lower:
+                return 'Java'
+            elif 'pkg:go/' in purl_lower or 'pkg:golang/' in purl_lower:
+                return 'Go'
+            elif 'pkg:cargo/' in purl_lower:
+                return 'Rust'
+            elif 'pkg:nuget/' in purl_lower:
+                return 'C#/.NET'
+            elif 'pkg:gem/' in purl_lower:
+                return 'Ruby'
+            elif 'pkg:composer/' in purl_lower:
+                return 'PHP'
+            elif 'pkg:cocoapods/' in purl_lower or 'pkg:swift/' in purl_lower:
+                return 'Swift/Obj-C'
+        
+        # Fallback: infer from type
+        comp_type = component.get('type', '').lower()
+        type_to_lang = {
+            'npm': 'JavaScript',
+            'pypi': 'Python',
+            'maven': 'Java',
+            'go-module': 'Go',
+            'cargo': 'Rust',
+            'nuget': 'C#/.NET',
+            'gem': 'Ruby',
+            'composer': 'PHP',
+        }
+        for key, lang in type_to_lang.items():
+            if key in comp_type:
+                return lang
+        
+        return None
+    
     async def store_application(
         self,
         user_id: str,
@@ -191,11 +252,13 @@ class SBOMService:
                 # Insert component if it doesn't exist for this user
                 component_insert_failed = False
                 if not existing_comp.data:
+                    language = SBOMService._extract_language_from_component(component)
                     component_data = {
                         "id": component_id,
                         "name": name,
                         "version": version,
                         "type": component.get("type", "library"),
+                        "language": language, 
                         "license": component.get("license"),
                         "purl": component.get("purl"),
                         "cpe": component.get("cpe"),
