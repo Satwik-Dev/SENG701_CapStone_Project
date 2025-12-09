@@ -219,7 +219,6 @@ export const ApplicationsPage: React.FC = () => {
     );
   };
 
-  // FIXED: Better logic for determining which applications to display
   const getDisplayedApplications = () => {
     // If search is active (user typed >= 2 chars), show search results
     if (isSearchActive && searchQuery.trim().length >= 2) {
