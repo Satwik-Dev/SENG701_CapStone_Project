@@ -12,6 +12,7 @@ import {
   AlertCircle
 } from 'lucide-react';
 import { applicationService } from '../services/applicationService';
+import { statsService } from '../services/statsService';
 import type { Application } from '../types/application';
 import toast from 'react-hot-toast';
 
@@ -32,7 +33,7 @@ export const DashboardPage: React.FC = () => {
     }
     
     try {
-      // Fetch recent applications
+      // Fetch recent applications for the activity feed
       const appsData = await applicationService.getApplications({
         page: 1,
         limit: 5,
@@ -40,17 +41,17 @@ export const DashboardPage: React.FC = () => {
 
       setRecentApplications(appsData.items);
 
-      // Calculate stats
-      const totalApps = appsData.total;
-      const completed = appsData.items.filter(app => app.status === 'completed').length;
-      const processing = appsData.items.filter(app => app.status === 'processing').length;
-      const totalComps = appsData.items.reduce((sum, app) => sum + (app.component_count || 0), 0);
+      // Fetch proper aggregated stats from the stats API
+      const overviewData = await statsService.getOverview();
+      
+      // Count processing applications from the stats
+      const processingCount = overviewData.by_status.find(s => s.name.toLowerCase() === 'processing')?.count || 0;
 
       setStats({
-        totalApplications: totalApps,
-        totalComponents: totalComps,
-        completedAnalyses: completed,
-        processingAnalyses: processing,
+        totalApplications: overviewData.total_applications,
+        totalComponents: overviewData.total_components,
+        completedAnalyses: overviewData.total_completed,
+        processingAnalyses: processingCount,
       });
     } catch (error: any) {
       console.error('Failed to load dashboard data:', error);
