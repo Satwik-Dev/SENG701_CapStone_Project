@@ -39,7 +39,7 @@ export const ApplicationDetailPage: React.FC = () => {
   
   // Vulnerability state
   const [vulnSummary, setVulnSummary] = useState<VulnerabilitySummary | null>(null);
-  const [vulnerabilities, setVulnerabilities] = useState<any[]>([]);
+  const [vulnerabilities, setVulnerabilities] = useState<Vulnerability[]>([]);
   const [loadingVulnerabilities, setLoadingVulnerabilities] = useState(false);
 
   // Fetch application details
@@ -98,14 +98,8 @@ export const ApplicationDetailPage: React.FC = () => {
       
       if (summary.total_count > 0) {
         const details = await getApplicationVulnerabilities(id);
-        const flatVulnerabilities = (details.vulnerabilities || []).map((cv: any) => ({
-          ...cv.vulnerabilities,
-          component_name: cv.components?.name,
-          component_version: cv.components?.version,
-          is_affected: cv.is_affected,
-          confidence_level: cv.confidence_level
-        }));
-        setVulnerabilities(flatVulnerabilities);
+        console.log('Fetched vulnerabilities:', details);
+        setVulnerabilities(details.vulnerabilities || []);
       }
     } catch (error) {
       console.error('Error fetching vulnerabilities:', error);
